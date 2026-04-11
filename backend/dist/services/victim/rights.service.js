@@ -30,11 +30,11 @@ const defaultRights = [
         detail: 'Courts and state schemes may support compensation based on harm and evidence.',
     },
 ];
-const getVictimRights = async (statementId) => {
+const getVictimRights = async (userId, statementId) => {
     await (0, catalog_service_1.ensureVictimCatalog)();
     const statement = statementId
-        ? await database_1.prisma.victimStatement.findUnique({
-            where: { id: statementId },
+        ? await database_1.prisma.victimStatement.findFirst({
+            where: { id: statementId, userId },
             include: {
                 classification: {
                     include: {

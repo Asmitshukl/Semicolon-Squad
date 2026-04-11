@@ -1,50 +1,55 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getVictimResolution = exports.classifyVictimStatement = void 0;
-const enums_1 = require("../../generated/prisma/enums");
+exports.getVictimResolution = exports.classifyVictimStatement = exports.persistVictimClassification = void 0;
 const database_1 = require("../../config/database");
 const ApiError_1 = require("../../utils/ApiError");
 const catalog_service_1 = require("./catalog.service");
-const scoreText = (text) => {
-    const lower = text.toLowerCase();
-    const patterns = [
-        {
-            keywords: ['kill', 'murder', 'knife', 'attack', 'beating', 'injury', 'hurt', 'assault'],
-            sectionNumber: '115',
-            urgencyLevel: enums_1.UrgencyLevel.HIGH,
-            urgencyReason: 'The statement suggests physical violence or immediate safety concerns.',
-            severityScore: 0.82,
+const env_1 = require("../../config/env");
+const localPipeline_1 = require("../ml/localPipeline");
+const mlClient_1 = require("../ml/mlClient");
+const normalize_1 = require("../ml/normalize");
+const statement_service_1 = require("./statement.service");
+const persistVictimClassification = async (statementId, payload) => {
+    await (0, catalog_service_1.ensureVictimCatalog)();
+    const section = await database_1.prisma.bNSSection.findUnique({
+        where: { sectionNumber: payload.primarySectionNumber },
+    });
+    if (!section) {
+        throw new ApiError_1.ApiError(500, `BNS catalog is missing section ${payload.primarySectionNumber}.`);
+    }
+    const alternativeSections = payload.alternatives.map((a) => ({
+        sectionNumber: a.sectionNumber,
+        title: a.title ?? a.sectionNumber,
+        confidence: a.confidence,
+    }));
+    return database_1.prisma.crimeClassification.upsert({
+        where: { victimStatementId: statementId },
+        update: {
+            bnsSectionId: section.id,
+            confidenceScore: payload.primaryConfidence,
+            urgencyLevel: payload.urgencyLevel,
+            urgencyReason: payload.urgencyReason,
+            severityScore: payload.severityScore,
+            alternativeSections,
+            modelVersion: payload.modelVersion,
         },
-        {
-            keywords: ['threat', 'intimidat', 'blackmail', 'extort'],
-            sectionNumber: '351',
-            urgencyLevel: enums_1.UrgencyLevel.HIGH,
-            urgencyReason: 'The statement suggests ongoing intimidation or coercion.',
-            severityScore: 0.76,
+        create: {
+            victimStatementId: statementId,
+            bnsSectionId: section.id,
+            confidenceScore: payload.primaryConfidence,
+            urgencyLevel: payload.urgencyLevel,
+            urgencyReason: payload.urgencyReason,
+            severityScore: payload.severityScore,
+            alternativeSections,
+            modelVersion: payload.modelVersion,
         },
-        {
-            keywords: ['fraud', 'cheat', 'scam', 'money', 'upi', 'bank', 'loan'],
-            sectionNumber: '316',
-            urgencyLevel: enums_1.UrgencyLevel.MEDIUM,
-            urgencyReason: 'The statement suggests a financial fraud requiring evidence preservation.',
-            severityScore: 0.69,
+        include: {
+            bnsSection: true,
+            victimStatement: true,
         },
-        {
-            keywords: ['harass', 'touch', 'sexual', 'stalk', 'molest'],
-            sectionNumber: '75',
-            urgencyLevel: enums_1.UrgencyLevel.HIGH,
-            urgencyReason: 'The statement suggests sexual harassment or gender-based harm.',
-            severityScore: 0.88,
-        },
-    ];
-    const match = patterns.find((pattern) => pattern.keywords.some((keyword) => lower.includes(keyword)));
-    return (match ?? {
-        sectionNumber: '303',
-        urgencyLevel: enums_1.UrgencyLevel.MEDIUM,
-        urgencyReason: 'The statement suggests a property or general complaint requiring station review.',
-        severityScore: 0.58,
     });
 };
+exports.persistVictimClassification = persistVictimClassification;
 const classifyVictimStatement = async (userId, statementId) => {
     await (0, catalog_service_1.ensureVictimCatalog)();
     const statement = statementId
@@ -58,46 +63,24 @@ const classifyVictimStatement = async (userId, statementId) => {
     if (!statement) {
         throw new ApiError_1.ApiError(404, 'No statement found to classify.');
     }
-    const scored = scoreText(statement.rawText ?? statement.translatedText ?? '');
-    const section = await database_1.prisma.bNSSection.findUnique({
-        where: { sectionNumber: scored.sectionNumber },
-    });
-    if (!section) {
-        throw new ApiError_1.ApiError(500, 'BNS catalog is not ready.');
+    const text = statement.rawText ?? statement.translatedText ?? '';
+    const iso = (0, statement_service_1.languageEnumToIso)(statement.language);
+    let payload;
+    if (env_1.env.mlServiceUrl) {
+        const remote = await (0, mlClient_1.remoteClassifyText)(text, iso);
+        if (remote) {
+            payload = remote;
+        }
+        else {
+            const local = await (0, localPipeline_1.buildLocalFullPipelineFromText)(text);
+            payload = (0, normalize_1.fullPipelineToClassificationPayload)(local);
+        }
     }
-    const classification = await database_1.prisma.crimeClassification.upsert({
-        where: { victimStatementId: statement.id },
-        update: {
-            bnsSectionId: section.id,
-            confidenceScore: scored.severityScore,
-            urgencyLevel: scored.urgencyLevel,
-            urgencyReason: scored.urgencyReason,
-            severityScore: scored.severityScore,
-            alternativeSections: [
-                { sectionNumber: '351', title: 'Criminal intimidation' },
-                { sectionNumber: '303', title: 'Theft' },
-            ],
-            modelVersion: 'heuristic-v1',
-        },
-        create: {
-            victimStatementId: statement.id,
-            bnsSectionId: section.id,
-            confidenceScore: scored.severityScore,
-            urgencyLevel: scored.urgencyLevel,
-            urgencyReason: scored.urgencyReason,
-            severityScore: scored.severityScore,
-            alternativeSections: [
-                { sectionNumber: '351', title: 'Criminal intimidation' },
-                { sectionNumber: '303', title: 'Theft' },
-            ],
-            modelVersion: 'heuristic-v1',
-        },
-        include: {
-            bnsSection: true,
-            victimStatement: true,
-        },
-    });
-    return classification;
+    else {
+        const local = await (0, localPipeline_1.buildLocalFullPipelineFromText)(text);
+        payload = (0, normalize_1.fullPipelineToClassificationPayload)(local);
+    }
+    return (0, exports.persistVictimClassification)(statement.id, payload);
 };
 exports.classifyVictimStatement = classifyVictimStatement;
 const getVictimResolution = async (statementId, userId) => {
