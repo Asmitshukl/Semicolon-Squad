@@ -7,12 +7,16 @@
     "dev": "npm run build && node --watch dist/server.js",
     "start": "node dist/server.js",
     "prisma:generate": "npx prisma generate --schema ../prisma/schema.prisma",
-    "prisma:push": "npx prisma db push --schema ../prisma/schema.prisma --url \"$DATABASE_URL\""
+    "prisma:push": "npx prisma db push --schema ../prisma/schema.prisma --url \"$DATABASE_URL\"",
+    "create:admin": "npm run build && node scripts/create-admin.js"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.7.0",
-    "busboy": "^1.6.0",
-    "dotenv": "^17.4.1"
+    "@types/express": "^5.0.6",
+    "dotenv": "^17.4.1",
+    "express": "^5.2.1",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
     "@types/busboy": "^1.5.4",

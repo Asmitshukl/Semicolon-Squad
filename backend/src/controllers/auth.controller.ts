@@ -4,6 +4,7 @@ import { PrismaClientKnownRequestError } from '../generated/prisma/internal/pris
 import { prisma } from '../config/database';
 import { verifyPassword } from '../utils/hash';
 import { ApiError } from '../utils/ApiError';
+import { normalizeDatabaseError } from '../utils/databaseError';
 import { sendJson, parseCookies } from '../server.shared';
 import { clearAuthCookies, setAuthCookies } from './auth.shared';
 import { buildAuthResponse, toSafeUser } from '../services/auth/shared.auth.service';
@@ -11,7 +12,7 @@ import { verifyAccessToken, verifyRefreshToken } from '../utils/jwt';
 
 const findUserForLogin = async (email: string) =>
   prisma.user
-    .findUnique({
+    .findFirst({
       where: {
         email,
       },
@@ -20,17 +21,10 @@ const findUserForLogin = async (email: string) =>
       },
     })
     .catch((error: unknown) => {
-      if (
-        error instanceof PrismaClientKnownRequestError &&
-        error.code === 'P2021'
-      ) {
-        throw new ApiError(
-          500,
-          'Database tables are missing. Run the Prisma schema sync before using auth.',
-        );
+      if (error instanceof PrismaClientKnownRequestError) {
+        normalizeDatabaseError(error);
       }
-
-      throw error;
+      normalizeDatabaseError(error);
     });
 
 export const loginController = async (
@@ -84,14 +78,16 @@ export const refreshController = async (
   }
 
   const tokenPayload = verifyRefreshToken(refreshToken);
-  const user = await prisma.user.findUnique({
-    where: {
-      id: tokenPayload.sub,
-    },
-    include: {
-      officer: true,
-    },
-  });
+  const user = await prisma.user
+    .findUnique({
+      where: {
+        id: tokenPayload.sub,
+      },
+      include: {
+        officer: true,
+      },
+    })
+    .catch((error: unknown) => normalizeDatabaseError(error));
 
   if (!user || !user.isActive) {
     throw new ApiError(401, 'Session is no longer valid.');
@@ -120,14 +116,16 @@ export const meController = async (req: IncomingMessage, res: ServerResponse) =>
   }
 
   const tokenPayload = verifyAccessToken(accessToken);
-  const user = await prisma.user.findUnique({
-    where: {
-      id: tokenPayload.sub,
-    },
-    include: {
-      officer: true,
-    },
-  });
+  const user = await prisma.user
+    .findUnique({
+      where: {
+        id: tokenPayload.sub,
+      },
+      include: {
+        officer: true,
+      },
+    })
+    .catch((error: unknown) => normalizeDatabaseError(error));
 
   if (!user) {
     throw new ApiError(404, 'User not found.');
