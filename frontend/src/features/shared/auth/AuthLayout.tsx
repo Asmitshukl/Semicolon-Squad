@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, BadgeCheck, Mic, Users } from 'lucide-react';
+import { FileText, BadgeCheck, Users } from 'lucide-react';
 
 /* ══════════════════════════════════════════════════════════════════
    ASHOKA CHAKRA — 24-spoke wheel (from Indian national flag)

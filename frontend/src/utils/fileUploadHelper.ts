@@ -1,1 +1,1 @@
-﻿export const toFormData = (file: File) => new FormData();
+export const toFormData = (_file: File) => new FormData();
