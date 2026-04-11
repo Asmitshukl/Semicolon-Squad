@@ -18,7 +18,27 @@ const app = async (req, res) => {
         if (!handler) {
             throw new ApiError_1.ApiError(404, 'Route not found.');
         }
-        const body = req.method === 'GET' ? {} : await (0, server_shared_1.parseJsonBody)(req);
+        let body = {};
+        if (req.method !== 'GET') {
+            const contentType = req.headers['content-type'] ?? '';
+            if (contentType.includes('multipart/form-data')) {
+                const mp = await (0, server_shared_1.parseMultipartBody)(req);
+                body = {
+                    __multipart: true,
+                    ...mp.fields,
+                    ...(mp.file
+                        ? {
+                            audioBuffer: mp.file.buffer,
+                            audioMimeType: mp.file.mimeType,
+                            audioFilename: mp.file.filename,
+                        }
+                        : {}),
+                };
+            }
+            else {
+                body = await (0, server_shared_1.parseJsonBody)(req);
+            }
+        }
         await handler(req, res, body);
     }
     catch (error) {

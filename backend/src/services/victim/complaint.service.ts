@@ -1,54 +1,59 @@
-import { UrgencyLevel } from '../../generated/prisma/enums';
 import { prisma } from '../../config/database';
 import { ApiError } from '../../utils/ApiError';
 import { ensureVictimCatalog } from './catalog.service';
+import { env } from '../../config/env';
+import { buildLocalFullPipelineFromText } from '../ml/localPipeline';
+import { remoteClassifyText } from '../ml/mlClient';
+import { fullPipelineToClassificationPayload } from '../ml/normalize';
+import type { MlClassificationPayload } from '../../types/ml.types';
+import { languageEnumToIso } from './statement.service';
 
-const scoreText = (text: string) => {
-  const lower = text.toLowerCase();
+export const persistVictimClassification = async (
+  statementId: string,
+  payload: MlClassificationPayload,
+) => {
+  await ensureVictimCatalog();
 
-  const patterns = [
-    {
-      keywords: ['kill', 'murder', 'knife', 'attack', 'beating', 'injury', 'hurt', 'assault'],
-      sectionNumber: '115',
-      urgencyLevel: UrgencyLevel.HIGH,
-      urgencyReason: 'The statement suggests physical violence or immediate safety concerns.',
-      severityScore: 0.82,
-    },
-    {
-      keywords: ['threat', 'intimidat', 'blackmail', 'extort'],
-      sectionNumber: '351',
-      urgencyLevel: UrgencyLevel.HIGH,
-      urgencyReason: 'The statement suggests ongoing intimidation or coercion.',
-      severityScore: 0.76,
-    },
-    {
-      keywords: ['fraud', 'cheat', 'scam', 'money', 'upi', 'bank', 'loan'],
-      sectionNumber: '316',
-      urgencyLevel: UrgencyLevel.MEDIUM,
-      urgencyReason: 'The statement suggests a financial fraud requiring evidence preservation.',
-      severityScore: 0.69,
-    },
-    {
-      keywords: ['harass', 'touch', 'sexual', 'stalk', 'molest'],
-      sectionNumber: '75',
-      urgencyLevel: UrgencyLevel.HIGH,
-      urgencyReason: 'The statement suggests sexual harassment or gender-based harm.',
-      severityScore: 0.88,
-    },
-  ];
+  const section = await prisma.bNSSection.findUnique({
+    where: { sectionNumber: payload.primarySectionNumber },
+  });
 
-  const match = patterns.find((pattern) =>
-    pattern.keywords.some((keyword) => lower.includes(keyword)),
-  );
+  if (!section) {
+    throw new ApiError(500, `BNS catalog is missing section ${payload.primarySectionNumber}.`);
+  }
 
-  return (
-    match ?? {
-      sectionNumber: '303',
-      urgencyLevel: UrgencyLevel.MEDIUM,
-      urgencyReason: 'The statement suggests a property or general complaint requiring station review.',
-      severityScore: 0.58,
-    }
-  );
+  const alternativeSections = payload.alternatives.map((a) => ({
+    sectionNumber: a.sectionNumber,
+    title: a.title ?? a.sectionNumber,
+    confidence: a.confidence,
+  }));
+
+  return prisma.crimeClassification.upsert({
+    where: { victimStatementId: statementId },
+    update: {
+      bnsSectionId: section.id,
+      confidenceScore: payload.primaryConfidence,
+      urgencyLevel: payload.urgencyLevel,
+      urgencyReason: payload.urgencyReason,
+      severityScore: payload.severityScore,
+      alternativeSections,
+      modelVersion: payload.modelVersion,
+    },
+    create: {
+      victimStatementId: statementId,
+      bnsSectionId: section.id,
+      confidenceScore: payload.primaryConfidence,
+      urgencyLevel: payload.urgencyLevel,
+      urgencyReason: payload.urgencyReason,
+      severityScore: payload.severityScore,
+      alternativeSections,
+      modelVersion: payload.modelVersion,
+    },
+    include: {
+      bnsSection: true,
+      victimStatement: true,
+    },
+  });
 };
 
 export const classifyVictimStatement = async (userId: string, statementId?: string) => {
@@ -67,49 +72,25 @@ export const classifyVictimStatement = async (userId: string, statementId?: stri
     throw new ApiError(404, 'No statement found to classify.');
   }
 
-  const scored = scoreText(statement.rawText ?? statement.translatedText ?? '');
-  const section = await prisma.bNSSection.findUnique({
-    where: { sectionNumber: scored.sectionNumber },
-  });
+  const text = statement.rawText ?? statement.translatedText ?? '';
+  const iso = languageEnumToIso(statement.language);
 
-  if (!section) {
-    throw new ApiError(500, 'BNS catalog is not ready.');
+  let payload: MlClassificationPayload;
+
+  if (env.mlServiceUrl) {
+    const remote = await remoteClassifyText(text, iso);
+    if (remote) {
+      payload = remote;
+    } else {
+      const local = await buildLocalFullPipelineFromText(text);
+      payload = fullPipelineToClassificationPayload(local);
+    }
+  } else {
+    const local = await buildLocalFullPipelineFromText(text);
+    payload = fullPipelineToClassificationPayload(local);
   }
 
-  const classification = await prisma.crimeClassification.upsert({
-    where: { victimStatementId: statement.id },
-    update: {
-      bnsSectionId: section.id,
-      confidenceScore: scored.severityScore,
-      urgencyLevel: scored.urgencyLevel,
-      urgencyReason: scored.urgencyReason,
-      severityScore: scored.severityScore,
-      alternativeSections: [
-        { sectionNumber: '351', title: 'Criminal intimidation' },
-        { sectionNumber: '303', title: 'Theft' },
-      ],
-      modelVersion: 'heuristic-v1',
-    },
-    create: {
-      victimStatementId: statement.id,
-      bnsSectionId: section.id,
-      confidenceScore: scored.severityScore,
-      urgencyLevel: scored.urgencyLevel,
-      urgencyReason: scored.urgencyReason,
-      severityScore: scored.severityScore,
-      alternativeSections: [
-        { sectionNumber: '351', title: 'Criminal intimidation' },
-        { sectionNumber: '303', title: 'Theft' },
-      ],
-      modelVersion: 'heuristic-v1',
-    },
-    include: {
-      bnsSection: true,
-      victimStatement: true,
-    },
-  });
-
-  return classification;
+  return persistVictimClassification(statement.id, payload);
 };
 
 export const getVictimResolution = async (statementId: string, userId: string) => {
@@ -127,10 +108,9 @@ export const getVictimResolution = async (statementId: string, userId: string) =
   }
 
   const section = statement.classification.bnsSection;
-  const imprisonment =
-    section.isLifeOrDeath
-      ? 'Life imprisonment or more severe punishment where specified.'
-      : `${section.minImprisonmentMonths ?? 0} to ${section.maxImprisonmentMonths ?? 0} months`;
+  const imprisonment = section.isLifeOrDeath
+    ? 'Life imprisonment or more severe punishment where specified.'
+    : `${section.minImprisonmentMonths ?? 0} to ${section.maxImprisonmentMonths ?? 0} months`;
   const fine = `INR ${section.minFine ?? 0} to INR ${section.maxFine ?? 0}`;
 
   return {

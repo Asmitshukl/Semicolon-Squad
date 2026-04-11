@@ -5,6 +5,7 @@ import {
   latestStatementController,
   resolutionController,
 } from '../../controllers/victim/complaint.controller';
+import { victimPipelineController } from '../../controllers/victim/pipeline.controller';
 import { victimRightsController } from '../../controllers/victim/rights.controller';
 import {
   victimCaseTrackController,
@@ -14,6 +15,7 @@ import { victimStationsController } from '../../controllers/victim/station.contr
 
 export const victimRoutes: RouteDefinition[] = [
   { method: 'POST', path: '/api/victim/statements', handler: createStatementController },
+  { method: 'POST', path: '/api/victim/ml/pipeline', handler: victimPipelineController },
   { method: 'GET', path: '/api/victim/statements/latest', handler: latestStatementController },
   { method: 'POST', path: '/api/victim/classify', handler: classifyStatementController },
   { method: 'POST', path: '/api/victim/resolution', handler: resolutionController },
