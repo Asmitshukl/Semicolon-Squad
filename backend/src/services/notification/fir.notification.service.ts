@@ -1,6 +1,6 @@
 import { prisma } from '../../config/database';
 import { ApiError } from '../../utils/ApiError';
-import type { SMSNotification, NotificationStatus } from '@prisma/client';
+import type { SMSNotification } from '../../generated/prisma/client';
 
 export interface SendNotificationInput {
   userId: string;

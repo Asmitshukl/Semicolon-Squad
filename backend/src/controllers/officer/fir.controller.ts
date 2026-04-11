@@ -76,7 +76,8 @@ export class FIRController {
     }
 
     // Check authorization
-    if (fir.victimId !== user.id && user.role !== Role.ADMIN && user.officer?.id !== fir.officerId) {
+    const isStationOfficer = user.role === Role.OFFICER && user.officer?.stationId === fir.stationId;
+    if (fir.victimId !== user.id && user.role !== Role.ADMIN && user.officer?.id !== fir.officerId && !isStationOfficer) {
       throw new ApiError(403, 'Not authorized to view this FIR');
     }
 

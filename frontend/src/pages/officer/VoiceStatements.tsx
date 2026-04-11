@@ -1,21 +1,52 @@
-import { Fragment, useState } from 'react';
-import { MOCK_VOICE_GLOBAL } from '../../data/officerMock';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { VoiceRecorder } from '../../components/officer/VoiceRecorder';
+import { officerService } from '../../services/officerService';
+import type { VoiceRec } from '../../data/officerMock';
 
 export const VoiceStatements = () => {
-  const [rows, setRows] = useState(MOCK_VOICE_GLOBAL);
+  const [rows, setRows] = useState<VoiceRec[]>([]);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [firFilter, setFirFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'verified' | 'unverified'>('ALL');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filtered = rows.filter((r) => {
-    if (firFilter && !r.firNo.toLowerCase().includes(firFilter.toLowerCase())) return false;
-    if (statusFilter === 'verified' && !r.verified) return false;
-    if (statusFilter === 'unverified' && r.verified) return false;
-    return true;
-  });
+  useEffect(() => {
+    let active = true;
 
-  const markVerified = (id: string) => {
+    void officerService
+      .listVoiceRecordings()
+      .then((data) => {
+        if (!active) return;
+        setRows(data);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : 'Failed to load voice statements.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const filtered = useMemo(
+    () =>
+      rows.filter((r) => {
+        if (firFilter && !r.firNo.toLowerCase().includes(firFilter.toLowerCase())) return false;
+        if (statusFilter === 'verified' && !r.verified) return false;
+        if (statusFilter === 'unverified' && r.verified) return false;
+        return true;
+      }),
+    [firFilter, rows, statusFilter],
+  );
+
+  const markVerified = async (id: string) => {
+    await officerService.verifyVoiceRecording(id);
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, verified: true } : r)));
     setConfirmId(null);
   };
@@ -47,74 +78,79 @@ export const VoiceStatements = () => {
         </select>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-white/[0.08] bg-[rgba(255,255,255,0.04)]">
-        <table className="w-full min-w-[800px] text-sm">
-          <thead>
-            <tr className="border-b border-white/[0.08]">
-              {['FIR NO', 'LANGUAGE', 'DURATION', 'RECORDED', 'STATUS', 'ACTIONS'].map((h) => (
-                <th
-                  key={h}
-                  className="text-left px-4 py-3 text-[10px] font-bold tracking-[0.14em] text-[#6B7280] uppercase"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((r) => (
-              <Fragment key={r.id}>
-                <tr className="border-b border-white/[0.06] hover:bg-white/[0.03]">
-                  <td className="px-4 py-3 font-mono text-sm font-bold text-[#F97316]">{r.firNo}</td>
-                  <td className="px-4 py-3 text-white font-semibold">{r.language}</td>
-                  <td className="px-4 py-3 font-mono text-[#9CA3AF]">{r.duration}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-[#6B7280]">{r.recordedAt}</td>
-                  <td className={`px-4 py-3 text-[11px] font-bold uppercase ${r.verified ? 'text-[#16A34A]' : 'text-[#D97706]'}`}>
-                    {r.verified ? 'Verified' : 'Unverified'}
-                  </td>
-                  <td className="px-4 py-3 space-x-3">
-                    <button type="button" className="text-xs font-bold text-[#F97316] hover:underline">
-                      Play
-                    </button>
-                    {!r.verified && (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmId(confirmId === r.id ? null : r.id)}
-                        className="text-xs font-bold text-[#F97316] hover:underline"
-                      >
-                        Verify
+      {loading ? <p className="py-8 text-sm text-[#6B7280]">Loading voice statements...</p> : null}
+      {error ? <p className="py-8 text-sm text-[#FCA5A5]">{error}</p> : null}
+
+      {!loading && !error ? (
+        <div className="overflow-x-auto rounded-xl border border-white/[0.08] bg-[rgba(255,255,255,0.04)]">
+          <table className="w-full min-w-[800px] text-sm">
+            <thead>
+              <tr className="border-b border-white/[0.08]">
+                {['FIR NO', 'LANGUAGE', 'DURATION', 'RECORDED', 'STATUS', 'ACTIONS'].map((h) => (
+                  <th
+                    key={h}
+                    className="text-left px-4 py-3 text-[10px] font-bold tracking-[0.14em] text-[#6B7280] uppercase"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r) => (
+                <Fragment key={r.id}>
+                  <tr className="border-b border-white/[0.06] hover:bg-white/[0.03]">
+                    <td className="px-4 py-3 font-mono text-sm font-bold text-[#F97316]">{r.firNo}</td>
+                    <td className="px-4 py-3 text-white font-semibold">{r.language}</td>
+                    <td className="px-4 py-3 font-mono text-[#9CA3AF]">{r.duration}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-[#6B7280]">{r.recordedAt}</td>
+                    <td className={`px-4 py-3 text-[11px] font-bold uppercase ${r.verified ? 'text-[#16A34A]' : 'text-[#D97706]'}`}>
+                      {r.verified ? 'Verified' : 'Unverified'}
+                    </td>
+                    <td className="px-4 py-3 space-x-3">
+                      <button type="button" className="text-xs font-bold text-[#F97316] hover:underline">
+                        Play
                       </button>
-                    )}
-                  </td>
-                </tr>
-                {confirmId === r.id && (
-                  <tr className="bg-white/[0.02]">
-                    <td colSpan={6} className="px-4 py-4">
-                      <p className="text-sm text-[#D1D5DB] mb-3">Mark this recording as verified?</p>
-                      <div className="flex gap-3">
+                      {!r.verified && (
                         <button
                           type="button"
-                          onClick={() => setConfirmId(null)}
-                          className="rounded-sm border border-white/[0.12] px-4 py-2 text-xs font-bold text-[#9CA3AF] uppercase"
+                          onClick={() => setConfirmId(confirmId === r.id ? null : r.id)}
+                          className="text-xs font-bold text-[#F97316] hover:underline"
                         >
-                          Cancel
+                          Verify
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => markVerified(r.id)}
-                          className="rounded-sm bg-[#16A34A] px-4 py-2 text-xs font-extrabold text-white uppercase tracking-wide"
-                        >
-                          ✓ Mark Verified
-                        </button>
-                      </div>
+                      )}
                     </td>
                   </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  {confirmId === r.id && (
+                    <tr className="bg-white/[0.02]">
+                      <td colSpan={6} className="px-4 py-4">
+                        <p className="text-sm text-[#D1D5DB] mb-3">Mark this recording as verified?</p>
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setConfirmId(null)}
+                            className="rounded-sm border border-white/[0.12] px-4 py-2 text-xs font-bold text-[#9CA3AF] uppercase"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void markVerified(r.id)}
+                            className="rounded-sm bg-[#16A34A] px-4 py-2 text-xs font-extrabold text-white uppercase tracking-wide"
+                          >
+                            ✓ Mark Verified
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </div>
   );
 };

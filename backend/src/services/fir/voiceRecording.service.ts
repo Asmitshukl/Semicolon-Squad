@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database';
 import { ApiError } from '../../utils/ApiError';
-import type { VoiceRecording, Language } from '@prisma/client';
+import type { VoiceRecording } from '../../generated/prisma/client';
+import type { Language } from '../../generated/prisma/enums';
 
 export interface createVoiceRecordingInput {
   userId: string;

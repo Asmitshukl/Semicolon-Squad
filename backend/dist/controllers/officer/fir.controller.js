@@ -64,7 +64,8 @@ class FIRController {
             throw new ApiError_1.ApiError(404, 'FIR not found');
         }
         // Check authorization
-        if (fir.victimId !== user.id && user.role !== enums_1.Role.ADMIN && user.officer?.id !== fir.officerId) {
+        const isStationOfficer = user.role === enums_1.Role.OFFICER && user.officer?.stationId === fir.stationId;
+        if (fir.victimId !== user.id && user.role !== enums_1.Role.ADMIN && user.officer?.id !== fir.officerId && !isStationOfficer) {
             throw new ApiError_1.ApiError(403, 'Not authorized to view this FIR');
         }
         (0, server_shared_1.sendJson)(res, 200, {

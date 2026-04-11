@@ -1,6 +1,6 @@
 import { prisma } from '../../config/database';
 import { ApiError } from '../../utils/ApiError';
-import type { EvidenceChecklist, ChecklistItem, EvidenceItem } from '@prisma/client';
+import type { EvidenceChecklist, ChecklistItem, EvidenceItem } from '../../generated/prisma/client';
 
 export class EvidenceChecklistService {
   /**

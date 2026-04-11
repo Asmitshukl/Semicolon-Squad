@@ -1,7 +1,7 @@
 import { prisma } from '../../config/database';
 import { ApiError } from '../../utils/ApiError';
 import { FIRStatus, UrgencyLevel, Role } from '../../generated/prisma/enums';
-import type { FIR, BNSSection } from '@prisma/client';
+import type { FIR, BNSSection } from '../../generated/prisma/client';
 
 export interface CreateFIRInput {
   victimId: string;

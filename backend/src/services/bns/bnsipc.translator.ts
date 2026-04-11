@@ -1,6 +1,6 @@
 import { prisma } from '../../config/database';
 import { ApiError } from '../../utils/ApiError';
-import type { BNSSection } from '@prisma/client';
+import type { BNSSection } from '../../generated/prisma/client';
 
 export interface BNSIPCTranslation {
   bnsSection: BNSSection;

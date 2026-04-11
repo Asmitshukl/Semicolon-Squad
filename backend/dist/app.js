@@ -13,17 +13,22 @@ const app = async (req, res) => {
     }
     try {
         const requestUrl = new URL(req.url ?? '/', 'http://localhost');
-        const routeKey = `${req.method ?? 'GET'} ${requestUrl.pathname}`;
-        const handler = routes_1.routeMap.get(routeKey);
-        if (!handler) {
+        const method = req.method ?? 'GET';
+        const matchedRoute = (0, routes_1.matchRoute)(method, requestUrl.pathname);
+        const query = Object.fromEntries(requestUrl.searchParams.entries());
+        if (!matchedRoute) {
             throw new ApiError_1.ApiError(404, 'Route not found.');
         }
-        let body = {};
-        if (req.method !== 'GET') {
+        let body = {
+            ...query,
+            ...matchedRoute.params,
+        };
+        if (method !== 'GET') {
             const contentType = req.headers['content-type'] ?? '';
             if (contentType.includes('multipart/form-data')) {
                 const mp = await (0, server_shared_1.parseMultipartBody)(req);
                 body = {
+                    ...body,
                     __multipart: true,
                     ...mp.fields,
                     ...(mp.file
@@ -36,10 +41,13 @@ const app = async (req, res) => {
                 };
             }
             else {
-                body = await (0, server_shared_1.parseJsonBody)(req);
+                body = {
+                    ...body,
+                    ...(await (0, server_shared_1.parseJsonBody)(req)),
+                };
             }
         }
-        await handler(req, res, body);
+        await matchedRoute.handler(req, res, body);
     }
     catch (error) {
         const statusCode = error instanceof ApiError_1.ApiError ? error.statusCode : 500;

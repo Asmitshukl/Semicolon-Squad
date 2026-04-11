@@ -1,7 +1,8 @@
 import { prisma } from '../../config/database';
 import { ApiError } from '../../utils/ApiError';
 import { generateOTP } from '../../utils/generateOtp';
-import type { Officer, OfficerVerificationStatus } from '@prisma/client';
+import type { Officer } from '../../generated/prisma/client';
+import type { OfficerVerificationStatus } from '../../generated/prisma/enums';
 
 export class OfficerVerificationService {
   /**

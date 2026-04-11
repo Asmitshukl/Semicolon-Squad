@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database';
 import { ApiError } from '../../utils/ApiError';
-import type { CrimeClassification, UrgencyLevel } from '@prisma/client';
+import type { CrimeClassification } from '../../generated/prisma/client';
+import type { UrgencyLevel } from '../../generated/prisma/enums';
 
 export interface MLPredictionInput {
   statement: string;

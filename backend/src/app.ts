@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { ApiError } from './utils/ApiError';
 import { parseJsonBody, parseMultipartBody, sendJson, setCors } from './server.shared';
-import { routeMap } from './routes';
+import { matchRoute } from './routes';
 
 export const app = async (req: IncomingMessage, res: ServerResponse) => {
   setCors(req, res);
@@ -14,19 +14,24 @@ export const app = async (req: IncomingMessage, res: ServerResponse) => {
 
   try {
     const requestUrl = new URL(req.url ?? '/', 'http://localhost');
-    const routeKey = `${req.method ?? 'GET'} ${requestUrl.pathname}`;
-    const handler = routeMap.get(routeKey);
+    const method = req.method ?? 'GET';
+    const matchedRoute = matchRoute(method, requestUrl.pathname);
+    const query = Object.fromEntries(requestUrl.searchParams.entries());
 
-    if (!handler) {
+    if (!matchedRoute) {
       throw new ApiError(404, 'Route not found.');
     }
 
-    let body: Record<string, unknown> = {};
-    if (req.method !== 'GET') {
+    let body: Record<string, unknown> = {
+      ...query,
+      ...matchedRoute.params,
+    };
+    if (method !== 'GET') {
       const contentType = req.headers['content-type'] ?? '';
       if (contentType.includes('multipart/form-data')) {
         const mp = await parseMultipartBody(req);
         body = {
+          ...body,
           __multipart: true,
           ...mp.fields,
           ...(mp.file
@@ -38,10 +43,13 @@ export const app = async (req: IncomingMessage, res: ServerResponse) => {
             : {}),
         };
       } else {
-        body = await parseJsonBody(req);
+        body = {
+          ...body,
+          ...(await parseJsonBody(req)),
+        };
       }
     }
-    await handler(req, res, body);
+    await matchedRoute.handler(req, res, body);
   } catch (error) {
     const statusCode = error instanceof ApiError ? error.statusCode : 500;
     const message =

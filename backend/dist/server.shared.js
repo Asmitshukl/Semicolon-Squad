@@ -1,10 +1,6 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseCookies = exports.parseJsonBody = exports.parseMultipartBody = exports.setCors = exports.sendJson = void 0;
-const busboy_1 = __importDefault(require("busboy"));
 const env_1 = require("./config/env");
 const ApiError_1 = require("./utils/ApiError");
 const sendJson = (res, statusCode, body) => {
@@ -36,51 +32,79 @@ const setCors = (req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
 };
 exports.setCors = setCors;
-const parseMultipartBody = async (req) => new Promise((resolve, reject) => {
-    const ct = req.headers['content-type'] ?? '';
-    if (!ct.includes('multipart/form-data')) {
-        reject(new ApiError_1.ApiError(400, 'Expected multipart/form-data.'));
-        return;
-    }
-    const bb = (0, busboy_1.default)({ headers: req.headers });
-    const fields = {};
-    const chunks = [];
-    let filename = 'recording.webm';
-    let mimeType = 'audio/webm';
-    bb.on('file', (name, file, info) => {
-        if (name !== 'audio') {
-            file.resume();
-            return;
-        }
-        filename = info.filename || filename;
-        mimeType = info.mimeType || mimeType;
-        file.on('data', (data) => {
-            chunks.push(Buffer.isBuffer(data) ? data : Buffer.from(data));
-        });
-    });
-    bb.on('field', (name, val) => {
-        fields[name] = val;
-    });
-    bb.on('error', (err) => reject(err));
-    bb.on('finish', () => {
-        resolve({
-            fields,
-            file: chunks.length ? { buffer: Buffer.concat(chunks), filename, mimeType } : undefined,
-        });
-    });
-    req.pipe(bb);
-});
-exports.parseMultipartBody = parseMultipartBody;
-const parseJsonBody = async (req) => {
+const readRequestBuffer = async (req) => {
     const chunks = [];
     for await (const chunk of req) {
         chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
-    if (chunks.length === 0) {
+    return Buffer.concat(chunks);
+};
+const parseMultipartBody = async (req) => (async () => {
+    const ct = req.headers['content-type'] ?? '';
+    if (!ct.includes('multipart/form-data')) {
+        throw new ApiError_1.ApiError(400, 'Expected multipart/form-data.');
+    }
+    const boundaryMatch = ct.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
+    const boundary = boundaryMatch?.[1] ?? boundaryMatch?.[2];
+    if (!boundary) {
+        throw new ApiError_1.ApiError(400, 'Multipart boundary is missing.');
+    }
+    const body = await readRequestBuffer(req);
+    const boundaryBuffer = Buffer.from(`--${boundary}`);
+    const fields = {};
+    let file;
+    let searchFrom = 0;
+    while (searchFrom < body.length) {
+        const start = body.indexOf(boundaryBuffer, searchFrom);
+        if (start === -1)
+            break;
+        const partStart = start + boundaryBuffer.length;
+        const trailer = body.subarray(partStart, partStart + 2).toString('utf8');
+        if (trailer === '--')
+            break;
+        const contentStart = partStart + 2;
+        const nextBoundary = body.indexOf(boundaryBuffer, contentStart);
+        if (nextBoundary === -1)
+            break;
+        const part = body.subarray(contentStart, nextBoundary - 2);
+        const headerEnd = part.indexOf(Buffer.from('\r\n\r\n'));
+        if (headerEnd === -1) {
+            searchFrom = nextBoundary;
+            continue;
+        }
+        const headerText = part.subarray(0, headerEnd).toString('utf8');
+        const content = part.subarray(headerEnd + 4);
+        const disposition = headerText.match(/content-disposition:\s*form-data;\s*name="([^"]+)"(?:;\s*filename="([^"]*)")?/i);
+        if (!disposition) {
+            searchFrom = nextBoundary;
+            continue;
+        }
+        const [, fieldName, filenameRaw] = disposition;
+        const contentTypeMatch = headerText.match(/content-type:\s*([^\r\n]+)/i);
+        if (filenameRaw !== undefined) {
+            if (fieldName === 'audio') {
+                file = {
+                    buffer: Buffer.from(content),
+                    filename: filenameRaw || 'recording.webm',
+                    mimeType: contentTypeMatch?.[1]?.trim() || 'application/octet-stream',
+                };
+            }
+        }
+        else {
+            fields[fieldName] = content.toString('utf8');
+        }
+        searchFrom = nextBoundary;
+    }
+    return { fields, file };
+})();
+exports.parseMultipartBody = parseMultipartBody;
+const parseJsonBody = async (req) => {
+    const body = await readRequestBuffer(req);
+    if (body.length === 0) {
         return {};
     }
     try {
-        return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        return JSON.parse(body.toString('utf8'));
     }
     catch {
         throw new ApiError_1.ApiError(400, 'Request body must be valid JSON.');
