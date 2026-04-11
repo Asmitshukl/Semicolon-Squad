@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   FileText, Mic, Scale, ArrowRight, ChevronRight,
-  CheckCircle2, Search, Globe, Menu, X, Sun, Moon
+  CheckCircle2, Search, Globe, Menu, X, Sun, Moon, Bell
 } from 'lucide-react';
+import { WatermarkBackground } from '../../components/ui/WatermarkBackground';
 import { useAuthStore } from '../../store/authStore';
 import { authService } from '../../services/authService';
 
@@ -116,13 +117,38 @@ const UrgencyDot = ({ level }: { level: Urgency }) => (
   }} />
 );
 
+/* Custom SVGs for Social Icons since lucide-react might not include brand icons */
+const TwitterIcon = ({ size = 24, style, ...props }: any) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={style} {...props}>
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
+
+const InstagramIcon = ({ size = 24, style, ...props }: any) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} {...props}>
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+  </svg>
+);
+
+const FacebookIcon = ({ size = 24, style, fill, ...props }: any) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || "none"} stroke={fill ? "none" : "currentColor"} strokeWidth={fill ? "0" : "2"} strokeLinecap="round" strokeLinejoin="round" style={style} {...props}>
+    {fill ? (
+      <path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.04V9.41c0-3.02 1.8-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.5c-1.5 0-1.96.93-1.96 1.89v2.26h3.32l-.53 3.5h-2.8V24C19.62 23.1 24 18.1 24 12.07z" />
+    ) : (
+      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
+    )}
+  </svg>
+);
+
 /* ── Shared style tokens based on Light/Dark Mode ──────────────── */
 const getT = (isDark: boolean) => ({
-  accent:    '#F97316',
-  muted:     isDark ? '#6B7280' : '#64748B',
-  ultraMuted:isDark ? '#4B5563' : '#94A3B8',
+  accent:    '#FF9933',
+  muted:     isDark ? '#5a7090' : '#64748B',
+  ultraMuted:isDark ? '#3a5070' : '#94A3B8',
   white:     isDark ? '#ffffff' : '#020617', // Main text (black in light mode)
-  offWhite:  isDark ? '#d1d5db' : '#334155', // Secondary text
+  offWhite:  isDark ? '#e8d8c0' : '#334155', // Secondary text
   bg:        isDark ? '#0f0f0f' : '#f8fafc',
   // Replaced pure black with the shades from the login page:
   cardBg:    isDark ? 'linear-gradient(160deg, #080808 0%, #0d0d0d 60%, #111111 100%)' : '#ffffff',
@@ -131,8 +157,8 @@ const getT = (isDark: boolean) => ({
   divider:   isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)',
   rowHover:  isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
   iconBg:    isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-  label:     { fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', color: isDark ? '#4B5563' : '#64748B', textTransform: 'uppercase' as const },
-  sectionHd: { fontSize: 18, fontWeight: 700, color: isDark ? '#fff' : '#0f172a' },
+  label:     { fontSize: 10, fontWeight: 800, letterSpacing: '0.25em', color: isDark ? '#5a7090' : '#64748B', textTransform: 'uppercase' as const },
+  sectionHd: { fontSize: 18, fontWeight: 800, color: isDark ? '#fff' : '#0f172a' },
 });
 
 /* ══════════════════════════════════════════════════════════════════
@@ -163,10 +189,16 @@ export const LandingHome = () => {
   };
 
   return (
-    <div style={{ background: T.bg, minHeight: '100vh', color: T.white, fontFamily: 'Inter, system-ui, sans-serif', transition: 'background 0.3s ease, color 0.3s ease' }}>
+    <div style={{ background: T.bg, minHeight: '100vh', color: T.white, fontFamily: 'Inter, system-ui, sans-serif', transition: 'background 0.3s ease, color 0.3s ease', position: 'relative', overflowX: 'hidden' }}>
 
-      {/* ══ Tricolor stripe ══════════════════════════════════════ */}
-      <div style={{ display: 'flex', height: 3, flexShrink: 0 }}>
+      {/* ══ BACKGROUND WATERMARK ═════════════════════════════════ */}
+      <WatermarkBackground isDark={isDark} />
+
+      {/* Everything else gets relative positioning so it sits above the watermark */}
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        
+        {/* ══ Tricolor stripe ══════════════════════════════════════ */}
+        <div style={{ display: 'flex', height: 3, flexShrink: 0 }}>
         <div style={{ flex: 1, background: '#FF9933' }} />
         <div style={{ flex: 1, background: '#fff'    }} />
         <div style={{ flex: 1, background: '#138808' }} />
@@ -206,6 +238,23 @@ export const LandingHome = () => {
 
           {/* Right controls */}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            {/* Notifications Toggle */}
+            <button 
+              style={{
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '4px', position: 'relative'
+              }}
+              title="Notifications"
+            >
+              <Bell size={17} style={{ color: T.muted }} />
+              <span style={{
+                position: 'absolute', top: 2, right: 3, width: 6, height: 6,
+                background: '#ef4444', borderRadius: '50%',
+                border: `1.5px solid ${T.bg}`
+              }} />
+            </button>
+
             {/* Dark Mode Toggle */}
             <button 
               onClick={() => setIsDark(!isDark)}
@@ -219,17 +268,6 @@ export const LandingHome = () => {
               title="Toggle Theme"
             >
               {isDark ? <Sun size={17} /> : <Moon size={17} />}
-            </button>
-
-            {/* Language pill */}
-            <button style={{
-              fontSize: 12, fontWeight: 600, color: T.muted,
-              padding: '4px 10px', borderRadius: 99,
-              border: `1px solid ${T.divider}`,
-              background: 'transparent', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 4,
-            }}>
-              <Globe size={13} /> EN
             </button>
 
             {/* Avatar / logout */}
@@ -284,16 +322,19 @@ export const LandingHome = () => {
         ─────────────────────────────────────────────────────── */}
         <section style={{ paddingTop: 60, paddingBottom: 52 }}>
           {/* Micro-label */}
-          <div style={T.label}>स्वागत है &nbsp;·&nbsp; VICTIM PORTAL</div>
+          <div style={{...T.label, color: '#FF9933', display: 'flex', alignItems: 'center', gap: 8}}>
+            <span style={{ width: 24, height: 1, background: '#FF9933' }}></span>
+            स्वागत है &nbsp;·&nbsp; WELCOME BACK
+          </div>
 
           {/* Main greeting */}
           <h1 style={{
             marginTop: 14, marginBottom: 0,
-            fontSize: 'clamp(28px, 4vw, 40px)',
-            fontWeight: 800, letterSpacing: '-0.03em',
+            fontSize: 'clamp(32px, 4.5vw, 48px)',
+            fontWeight: 800, letterSpacing: '-0.02em',
             color: T.white, lineHeight: 1.1,
           }}>
-            {getGreeting()}, {firstName}.
+            {getGreeting()},<br />{firstName}.
           </h1>
 
           {/* Subtitle */}
@@ -377,159 +418,204 @@ export const LandingHome = () => {
         </section>
 
         {/* ────────────────────────────────────────────────────────
-            SECTION 4 — My Cases
+            SECTION 5 — Discover (Police Dept Cards)
         ─────────────────────────────────────────────────────── */}
         <section style={{ paddingBottom: 56 }}>
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
-            <div>
-              <div style={T.label}>मेरे मामले</div>
-              <div style={{ ...T.sectionHd, marginTop: 4 }}>My Cases</div>
-            </div>
-            <Link to="/victim/tracker" style={{ fontSize: 13, color: T.accent, textDecoration: 'none', fontWeight: 500, paddingBottom: 2 }}>
-              View all →
-            </Link>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <div style={T.label}>भारतीय पुलिस</div>
+            <div style={{ ...T.sectionHd, marginTop: 4, fontSize: 24 }}>The Indian Police</div>
           </div>
 
-          {CASES.length === 0 ? (
-            <p style={{ fontSize: 14, color: T.muted }}>
-              No FIRs filed yet.{' '}
-              <Link to="/victim/statement" style={{ color: T.accent, textDecoration: 'none', fontWeight: 600 }}>
-                Describe an incident →
-              </Link>
-            </p>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <div style={{
-                background: T.caseBg, border: T.cardBdr,
-                borderRadius: 12, overflow: 'hidden', minWidth: 580,
-              }}>
-                {/* Header row */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '2.2fr 1fr 36px 1.6fr 1fr 28px',
-                  padding: '10px 20px',
-                  borderBottom: T.divider,
-                }}>
-                  {['FIR No.', 'BNS Section', '', 'Status', 'Date', ''].map((h, i) => (
-                    <div key={i} style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: isDark ? '#4B5563' : '#64748B', textTransform: 'uppercase' }}>{h}</div>
-                  ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Top row: 3 cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: 16 }}>
+              {[
+                { img: '/images/flag.png', title: 'Overview' },
+                { img: '/images/vehicle.png', title: 'Dedicated Service' },
+                { img: '/images/heroes.png', title: 'Join the Force' },
+              ].map(c => (
+                <div key={c.title} style={{
+                  position: 'relative', borderRadius: 12, overflow: 'hidden', height: 260,
+                  cursor: 'pointer', transition: 'transform 0.2s', border: T.cardBdr
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}
+                >
+                  <img src={c.img} alt={c.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
-
-                {/* Data rows */}
-                {CASES.map((c, idx) => (
-                  <div key={c.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '2.2fr 1fr 36px 1.6fr 1fr 28px',
-                      padding: '14px 20px', alignItems: 'center',
-                      borderBottom: idx < CASES.length - 1 ? T.divider : 'none',
-                      cursor: 'pointer', transition: 'background 0.12s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = T.rowHover)}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <div style={{ fontSize: 13, fontWeight: 500, color: T.offWhite, fontFamily: 'JetBrains Mono, monospace' }}>{c.id}</div>
-                    <div style={{ fontSize: 13, color: T.muted }}>{c.bns}</div>
-                    <div style={{ display: 'flex', alignItems: 'center' }}><UrgencyDot level={c.urgency} /></div>
-                    <div style={{ fontSize: 13, color: T.muted }}>{c.status}</div>
-                    <div style={{ fontSize: 12, color: T.ultraMuted }}>{c.date}</div>
-                    <div style={{ color: T.ultraMuted, display: 'flex', alignItems: 'center' }}><ChevronRight size={14} /></div>
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
-          )}
 
-          {/* Tracking input bar */}
-          <div style={{
-            marginTop: 14, display: 'flex', alignItems: 'center',
-            background: T.caseBg, border: T.cardBdr,
-            borderRadius: 10, overflow: 'hidden', padding: '4px 4px 4px 14px',
-          }}>
-            <Search size={14} style={{ color: T.muted, flexShrink: 0 }} />
-            <input
-              value={trackId}
-              onChange={e => setTrackId(e.target.value)}
-              placeholder="Enter acknowledgment number to track"
-              style={{
-                flex: 1, background: 'transparent', border: 'none',
-                outline: 'none', color: T.white, fontSize: 13,
-                padding: '7px 10px',
-              }}
-            />
-            <button style={{
-              padding: '8px 18px', background: T.accent, color: '#fff',
-              border: 'none', borderRadius: 8,
-              fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              letterSpacing: '0.02em', flexShrink: 0,
-            }}>
-              Track
-            </button>
+            {/* Bottom row: 2 cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 16 }}>
+              {[
+                { img: '/images/community.png', title: 'Community & Trust' },
+                { img: '/images/wellness.png', title: 'Center for Officer Wellness' },
+              ].map(c => (
+                <div key={c.title} style={{
+                  position: 'relative', borderRadius: 12, overflow: 'hidden', height: 320,
+                  cursor: 'pointer', transition: 'transform 0.2s', border: T.cardBdr
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}
+                >
+                   <img src={c.img} alt={c.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
         {/* ────────────────────────────────────────────────────────
-            SECTION 5 — Rights (60%) + Notifications (40%)
+            SECTION 6 — Follow Us / Socials
         ─────────────────────────────────────────────────────── */}
-        <section>
-          <div className="grid grid-cols-1 lg:grid-cols-5" style={{ gap: 24 }}>
+        <section style={{ paddingTop: 24, paddingBottom: 56 }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <div style={T.label}>हमसे जुड़ें</div>
+            <div style={{ ...T.sectionHd, marginTop: 4, fontSize: 24 }}>Follow Us</div>
+          </div>
 
-            {/* ── Left: Your Rights (3/5 = 60%) ─────────────── */}
-            <div className="lg:col-span-3">
-              <div style={T.label}>आपके अधिकार</div>
-              <div style={{ ...T.sectionHd, marginTop: 4, marginBottom: 16 }}>Your Rights</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4" style={{ gap: 16 }}>
+            
+            {/* Website Card */}
+            <a href="https://bprd.nic.in" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+              <div style={{ 
+                background: T.caseBg, border: T.cardBdr, borderRadius: 12, display: 'flex', flexDirection: 'column', 
+                height: '100%', minHeight: 300, cursor: 'pointer', overflow: 'hidden', transition: 'transform 0.15s, box-shadow 0.15s' 
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
+                <img
+                  src="/images/flag.png"
+                  alt="Official portal — national emblem imagery"
+                  width={400}
+                  height={120}
+                  style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block', flexShrink: 0 }}
+                />
+                <div style={{ padding: 20, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(249,115,22,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                    <Globe size={32} style={{ color: T.accent }} />
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: T.white, marginBottom: 8, textAlign: 'center' }}>BPR&D Official Portal</div>
+                  <div style={{ fontSize: 14, color: T.muted, marginBottom: 24 }}>bprd.nic.in</div>
+                  <div style={{ fontSize: 13, background: T.iconBg, padding: '8px 20px', borderRadius: 20, color: T.white, fontWeight: 600 }}>
+                    Visit Website
+                  </div>
+                </div>
+              </div>
+            </a>
 
-              <div style={{ background: T.caseBg, border: T.cardBdr, borderRadius: 12, overflow: 'hidden' }}>
-                {RIGHTS.map((r, idx) => (
-                  <div key={r.title} style={{
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    padding: '14px 20px',
-                    borderBottom: idx < RIGHTS.length - 1 ? T.divider : 'none',
-                    background: r.highlight ? (isDark ? 'rgba(249,115,22,0.06)' : 'rgba(249,115,22,0.1)') : 'transparent',
-                  }}>
-                    <CheckCircle2
-                      size={15}
-                      style={{ color: r.highlight ? T.accent : '#22c55e', flexShrink: 0 }}
-                      strokeWidth={2}
-                    />
-                    <div style={{ flex: 1, fontSize: 14, color: r.highlight ? T.accent : T.offWhite, fontWeight: r.highlight ? 600 : 400 }}>
-                      {r.title}
+            {/* X (Twitter) Card */}
+            <a href="https://twitter.com/BPRDIndia" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+              <div style={{ 
+                background: T.caseBg, border: T.cardBdr, borderRadius: 12, display: 'flex', flexDirection: 'column', 
+                height: '100%', minHeight: 300, cursor: 'pointer', overflow: 'hidden', transition: 'transform 0.15s, box-shadow 0.15s' 
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
+                <img
+                  src="/images/heroes.png"
+                  alt="Police force and public service"
+                  width={400}
+                  height={120}
+                  style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block', flexShrink: 0 }}
+                />
+                <div style={{ padding: 24, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+                    <TwitterIcon size={24} style={{ color: T.white }} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: T.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <ChakraIcon size={22} />
                     </div>
-                    <div style={{ fontSize: 11, color: T.ultraMuted, flexShrink: 0, whiteSpace: 'nowrap' }}>
-                      {r.basis}
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: T.white }}>BPR&D India</div>
+                      <div style={{ fontSize: 13, color: T.muted }}>@BPRDIndia</div>
                     </div>
                   </div>
-                ))}
+                  <div style={{ fontSize: 14, color: T.offWhite, lineHeight: 1.5, marginBottom: 24, flex: 1 }}>
+                    Official updates and announcements from Bureau of Police Research & Development are shared here.
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: T.white }}>
+                    Follow BPR&D India on X
+                  </div>
+                </div>
               </div>
-            </div>
+            </a>
 
-            {/* ── Right: Notifications (2/5 = 40%) ─────────── */}
-            <div className="lg:col-span-2">
-              <div style={T.label}>सूचनाएं</div>
-              <div style={{ ...T.sectionHd, marginTop: 4, marginBottom: 16 }}>Recent Notifications</div>
+            {/* Instagram Card */}
+            <a href="https://instagram.com/bprdindia" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+              <div style={{ 
+                background: T.caseBg, border: T.cardBdr, borderRadius: 12, display: 'flex', flexDirection: 'column', 
+                height: '100%', minHeight: 300, cursor: 'pointer', overflow: 'hidden', transition: 'transform 0.15s, box-shadow 0.15s' 
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
+                <img
+                  src="/images/community.png"
+                  alt="Community and police outreach"
+                  width={400}
+                  height={120}
+                  style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block', flexShrink: 0 }}
+                />
+                <div style={{ padding: 20, display: 'flex', justifyContent: 'center' }}>
+                  <InstagramIcon size={24} style={{ color: T.white }} />
+                </div>
+                <div style={{ flex: 1, background: T.iconBg, margin: '0 20px', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: `1px solid ${T.divider}` }}>
+                  <InstagramIcon size={44} style={{ color: '#E1306C', marginBottom: 16 }} />
+                  <div style={{ fontSize: 13, fontWeight: 600, color: T.white }}>View this profile on Instagram</div>
+                  <div style={{ fontSize: 12, color: T.muted, marginTop: 6, fontWeight: 500 }}>@bprdindia</div>
+                  <div style={{ fontSize: 12, color: T.ultraMuted, marginTop: 2 }}>1,845 followers</div>
+                </div>
+                <div style={{ padding: 20, display: 'flex', gap: 12 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: T.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 12, height: 12, border: `2px solid ${T.muted}`, borderRadius: '50%' }}></div>
+                  </div>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: T.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 12, height: 4, background: T.muted, borderRadius: 2 }}></div>
+                  </div>
+                </div>
+              </div>
+            </a>
 
-              <div style={{ background: T.caseBg, border: T.cardBdr, borderRadius: 12, overflow: 'hidden' }}>
-                {NOTIFICATIONS.map((n, idx) => (
-                  <div key={idx} style={{
-                    display: 'flex', alignItems: 'flex-start', gap: 12,
-                    padding: '13px 16px',
-                    borderBottom: idx < NOTIFICATIONS.length - 1 ? T.divider : 'none',
-                  }}>
-                    {/* Status dot */}
-                    <span style={{
-                      display: 'inline-block', width: 7, height: 7,
-                      borderRadius: '50%', background: SMS_COLOR[n.status],
-                      flexShrink: 0, marginTop: 5,
-                    }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, color: T.offWhite, lineHeight: 1.45 }}>{n.message}</div>
-                      <div style={{ fontSize: 11, color: T.ultraMuted, marginTop: 3 }}>{n.time}</div>
+            {/* Facebook Card */}
+             <a href="https://facebook.com/officialBPRDIndia" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+              <div style={{ 
+                background: T.caseBg, border: T.cardBdr, borderRadius: 12, display: 'flex', flexDirection: 'column', 
+                height: '100%', minHeight: 300, cursor: 'pointer', overflow: 'hidden', transition: 'transform 0.15s, box-shadow 0.15s' 
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
+                <img
+                  src="/images/vehicle.png"
+                  alt="Police vehicles and dedicated service"
+                  width={400}
+                  height={120}
+                  style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block', flexShrink: 0 }}
+                />
+                <div style={{ padding: '16px 20px', borderBottom: T.divider, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FacebookIcon size={18} fill="white" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: T.white }}>BPR&D</div>
+                      <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>2,726 likes</div>
                     </div>
                   </div>
-                ))}
+                  <div style={{ fontSize: 11, fontWeight: 600, background: T.iconBg, padding: '6px 10px', borderRadius: 6, color: T.white }}>Follow Page</div>
+                </div>
+                <div style={{ padding: 24, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <div style={{ fontSize: 14, color: T.offWhite, lineHeight: 1.5, marginBottom: 20 }}>
+                    Welcome to the official Facebook page of Bureau of Police Research & Development (BPR&D).
+                  </div>
+                  <div style={{ height: 110, background: T.iconBg, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${T.divider}` }}>
+                    <FacebookIcon size={36} style={{ color: T.muted, opacity: 0.4 }} />
+                  </div>
+                </div>
               </div>
-            </div>
+            </a>
+
           </div>
         </section>
       </main>
@@ -549,6 +635,7 @@ export const LandingHome = () => {
           </span>
         </div>
       </footer>
+      </div> {/* End of zIndex wrapper */}
     </div>
   );
 };
