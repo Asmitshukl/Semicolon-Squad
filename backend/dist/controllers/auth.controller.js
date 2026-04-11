@@ -6,12 +6,13 @@ const prismaNamespace_1 = require("../generated/prisma/internal/prismaNamespace"
 const database_1 = require("../config/database");
 const hash_1 = require("../utils/hash");
 const ApiError_1 = require("../utils/ApiError");
+const databaseError_1 = require("../utils/databaseError");
 const server_shared_1 = require("../server.shared");
 const auth_shared_1 = require("./auth.shared");
 const shared_auth_service_1 = require("../services/auth/shared.auth.service");
 const jwt_1 = require("../utils/jwt");
 const findUserForLogin = async (email) => database_1.prisma.user
-    .findUnique({
+    .findFirst({
     where: {
         email,
     },
@@ -20,11 +21,10 @@ const findUserForLogin = async (email) => database_1.prisma.user
     },
 })
     .catch((error) => {
-    if (error instanceof prismaNamespace_1.PrismaClientKnownRequestError &&
-        error.code === 'P2021') {
-        throw new ApiError_1.ApiError(500, 'Database tables are missing. Run the Prisma schema sync before using auth.');
+    if (error instanceof prismaNamespace_1.PrismaClientKnownRequestError) {
+        (0, databaseError_1.normalizeDatabaseError)(error);
     }
-    throw error;
+    (0, databaseError_1.normalizeDatabaseError)(error);
 });
 const loginController = async (req, res, body) => {
     const email = String(body.email ?? '').trim().toLowerCase();
@@ -58,14 +58,16 @@ const refreshController = async (req, res, body) => {
         throw new ApiError_1.ApiError(401, 'Refresh token is required.');
     }
     const tokenPayload = (0, jwt_1.verifyRefreshToken)(refreshToken);
-    const user = await database_1.prisma.user.findUnique({
+    const user = await database_1.prisma.user
+        .findUnique({
         where: {
             id: tokenPayload.sub,
         },
         include: {
             officer: true,
         },
-    });
+    })
+        .catch((error) => (0, databaseError_1.normalizeDatabaseError)(error));
     if (!user || !user.isActive) {
         throw new ApiError_1.ApiError(401, 'Session is no longer valid.');
     }
@@ -87,14 +89,16 @@ const meController = async (req, res) => {
         throw new ApiError_1.ApiError(401, 'Authentication required.');
     }
     const tokenPayload = (0, jwt_1.verifyAccessToken)(accessToken);
-    const user = await database_1.prisma.user.findUnique({
+    const user = await database_1.prisma.user
+        .findUnique({
         where: {
             id: tokenPayload.sub,
         },
         include: {
             officer: true,
         },
-    });
+    })
+        .catch((error) => (0, databaseError_1.normalizeDatabaseError)(error));
     if (!user) {
         throw new ApiError_1.ApiError(404, 'User not found.');
     }
