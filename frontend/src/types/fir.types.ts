@@ -1,0 +1,1 @@
+﻿export interface FIR { id: string; status: string; }

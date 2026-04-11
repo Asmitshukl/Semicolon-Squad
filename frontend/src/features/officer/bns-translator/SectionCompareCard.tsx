@@ -1,0 +1,1 @@
+﻿export const SectionCompareCard = () => null;

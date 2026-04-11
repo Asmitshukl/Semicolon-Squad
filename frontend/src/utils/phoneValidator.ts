@@ -1,0 +1,1 @@
+﻿export const isValidPhone = (p: string) => /^[6-9]\d{9}$/.test(p);

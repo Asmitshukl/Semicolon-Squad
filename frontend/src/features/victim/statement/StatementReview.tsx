@@ -1,0 +1,1 @@
+﻿export const StatementReview = () => null;

@@ -1,0 +1,1 @@
+﻿export const AlternativeSections = () => null;

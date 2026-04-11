@@ -1,0 +1,1 @@
+﻿export const toFormData = (file: File) => new FormData();

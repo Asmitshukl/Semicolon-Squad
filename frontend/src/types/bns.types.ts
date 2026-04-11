@@ -1,0 +1,1 @@
+﻿export interface BNSSection { number: string; title: string; }

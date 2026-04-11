@@ -1,0 +1,1 @@
+﻿export interface CrimeClassification { section: string; confidence: number; }

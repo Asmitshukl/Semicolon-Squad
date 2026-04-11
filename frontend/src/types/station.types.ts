@@ -1,0 +1,1 @@
+﻿export interface PoliceStation { id: string; name: string; }
