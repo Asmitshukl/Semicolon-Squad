@@ -29,12 +29,12 @@ const defaultRights = [
   },
 ];
 
-export const getVictimRights = async (statementId?: string) => {
+export const getVictimRights = async (userId: string, statementId?: string) => {
   await ensureVictimCatalog();
 
   const statement = statementId
-    ? await prisma.victimStatement.findUnique({
-        where: { id: statementId },
+    ? await prisma.victimStatement.findFirst({
+        where: { id: statementId, userId },
         include: {
           classification: {
             include: {

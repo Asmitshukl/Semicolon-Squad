@@ -16,12 +16,14 @@ const VictimTrackerPage     = lazy(() => import('../pages/victim/VictimTrackerPa
 const VictimRightsPage      = lazy(() => import('../pages/victim/VictimRightsPage').then(m => ({ default: m.VictimRightsPage })));
 const VictimProfilePage     = lazy(() => import('../pages/victim/VictimProfilePage').then(m => ({ default: m.VictimProfilePage })));
 
-const OfficerHome           = lazy(() => import('../pages/officer/OfficerHome').then(m => ({ default: m.OfficerHome })));
+const OfficerLayout         = lazy(() => import('../components/officer/OfficerLayout').then(m => ({ default: m.OfficerLayout })));
+const OfficerDashboard      = lazy(() => import('../pages/officer/OfficerDashboard').then(m => ({ default: m.OfficerDashboard })));
+const FIRInbox              = lazy(() => import('../pages/officer/FIRInbox').then(m => ({ default: m.FIRInbox })));
+const FIRDetail             = lazy(() => import('../pages/officer/FIRDetail').then(m => ({ default: m.FIRDetail })));
 const OfficerFIRNewPage     = lazy(() => import('../pages/officer/OfficerFIRNewPage').then(m => ({ default: m.OfficerFIRNewPage })));
-const OfficerFIRDetailPage  = lazy(() => import('../pages/officer/OfficerFIRDetailPage').then(m => ({ default: m.OfficerFIRDetailPage })));
-const OfficerFIRListPage    = lazy(() => import('../pages/officer/OfficerFIRListPage').then(m => ({ default: m.OfficerFIRListPage })));
-const OfficerBNSLookupPage  = lazy(() => import('../pages/officer/OfficerBNSLookupPage').then(m => ({ default: m.OfficerBNSLookupPage })));
-const OfficerProfilePage    = lazy(() => import('../pages/officer/OfficerProfilePage').then(m => ({ default: m.OfficerProfilePage })));
+const BNSTranslator         = lazy(() => import('../pages/officer/BNSTranslator').then(m => ({ default: m.BNSTranslator })));
+const VoiceStatements       = lazy(() => import('../pages/officer/VoiceStatements').then(m => ({ default: m.VoiceStatements })));
+const OfficerProfile        = lazy(() => import('../pages/officer/OfficerProfile').then(m => ({ default: m.OfficerProfile })));
 
 const AdminLayout             = lazy(() => import('../components/layout/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
 const AdminHome             = lazy(() => import('../pages/admin/AdminHome').then(m => ({ default: m.AdminHome })));
@@ -71,16 +73,22 @@ const router = createBrowserRouter([
     ],
   },
 
-  /* ── Officer portal (role-gated) ─────────────────────────────── */
+  /* ── Officer portal — NyayaSetu officer dashboard (role-gated) ─ */
   {
-    element: <PrivateRoute allowedRoles={['officer']} />,
+    path: '/officer',
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <OfficerLayout />
+      </Suspense>
+    ),
     children: [
-      { path: '/officer',             element: <Suspense fallback={<PageLoader />}><OfficerHome /></Suspense> },
-      { path: '/officer/fir/new',     element: <Suspense fallback={<PageLoader />}><OfficerFIRNewPage /></Suspense> },
-      { path: '/officer/fir/:id',     element: <Suspense fallback={<PageLoader />}><OfficerFIRDetailPage /></Suspense> },
-      { path: '/officer/fir',         element: <Suspense fallback={<PageLoader />}><OfficerFIRListPage /></Suspense> },
-      { path: '/officer/bns',         element: <Suspense fallback={<PageLoader />}><OfficerBNSLookupPage /></Suspense> },
-      { path: '/officer/profile',     element: <Suspense fallback={<PageLoader />}><OfficerProfilePage /></Suspense> },
+      { index: true, element: <Suspense fallback={<PageLoader />}><OfficerDashboard /></Suspense> },
+      { path: 'fir', element: <Suspense fallback={<PageLoader />}><FIRInbox /></Suspense> },
+      { path: 'fir/new', element: <Suspense fallback={<PageLoader />}><OfficerFIRNewPage /></Suspense> },
+      { path: 'fir/:firId', element: <Suspense fallback={<PageLoader />}><FIRDetail /></Suspense> },
+      { path: 'bns', element: <Suspense fallback={<PageLoader />}><BNSTranslator /></Suspense> },
+      { path: 'voice', element: <Suspense fallback={<PageLoader />}><VoiceStatements /></Suspense> },
+      { path: 'profile', element: <Suspense fallback={<PageLoader />}><OfficerProfile /></Suspense> },
     ],
   },
 

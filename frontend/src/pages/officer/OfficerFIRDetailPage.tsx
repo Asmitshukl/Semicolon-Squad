@@ -1,1 +1,0 @@
-﻿export const OfficerFIRDetailPage = () => null;

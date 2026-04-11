@@ -1,0 +1,153 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.normalizeClassifyOnlyResponse = exports.fullPipelineToClassificationPayload = exports.normalizeFullPipelineResponse = void 0;
+const enums_1 = require("../../generated/prisma/enums");
+const asRecord = (v) => v != null && typeof v === 'object' && !Array.isArray(v) ? v : {};
+const asString = (v) => (typeof v === 'string' ? v : undefined);
+const asNumber = (v) => typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+const parseUrgency = (v) => {
+    const s = String(v ?? '')
+        .trim()
+        .toUpperCase();
+    if (s === 'CRITICAL')
+        return enums_1.UrgencyLevel.CRITICAL;
+    if (s === 'HIGH')
+        return enums_1.UrgencyLevel.HIGH;
+    if (s === 'LOW')
+        return enums_1.UrgencyLevel.LOW;
+    return enums_1.UrgencyLevel.MEDIUM;
+};
+const parseClassifications = (raw) => {
+    if (!Array.isArray(raw))
+        return [];
+    const out = [];
+    for (const item of raw) {
+        const o = asRecord(item);
+        const sectionNumber = asString(o.section_number) ??
+            asString(o.sectionNumber) ??
+            asString(o.bns_section) ??
+            asString(o.code);
+        if (!sectionNumber)
+            continue;
+        const confidence = asNumber(o.confidence) ??
+            asNumber(o.confidence_score) ??
+            asNumber(o.score) ??
+            0.5;
+        const title = asString(o.title) ?? asString(o.section_title);
+        out.push({ sectionNumber: String(sectionNumber).replace(/^§\s*/, '').trim(), confidence, title });
+    }
+    return out;
+};
+/** Maps a Python `/v1/pipeline` JSON body (snake_case or camelCase) to our internal shape. */
+const normalizeFullPipelineResponse = (json) => {
+    const o = asRecord(json);
+    const transcript = asString(o.transcript) ?? asString(o.whisper_text) ?? asString(o.asr_text) ?? '';
+    const rawComplaintText = asString(o.raw_complaint_text) ??
+        asString(o.rawComplaintText) ??
+        asString(o.complaint_text) ??
+        transcript;
+    const entitiesRaw = o.entities ?? o.ner_entities ?? o.ner;
+    const entities = asRecord(entitiesRaw);
+    let classifications = parseClassifications(o.classifications ?? o.bns_sections ?? o.labels);
+    const primaryFromField = asString(o.primary_section_number) ??
+        asString(o.primarySectionNumber) ??
+        classifications[0]?.sectionNumber;
+    const primarySection = primaryFromField ? String(primaryFromField).replace(/^§\s*/, '').trim() : '';
+    if (primarySection && classifications.length === 0) {
+        classifications = [
+            {
+                sectionNumber: primarySection,
+                confidence: asNumber(o.primary_confidence) ?? asNumber(o.primaryConfidence) ?? asNumber(o.confidence) ?? 0.72,
+            },
+        ];
+    }
+    if (!primarySection || classifications.length === 0) {
+        throw new Error('ML response missing primary BNS classification.');
+    }
+    const victimRights = asRecord(o.victim_rights ?? o.victimRights);
+    const bulletsRaw = victimRights.bullets ?? victimRights.items;
+    const victimRightsBullets = Array.isArray(bulletsRaw)
+        ? bulletsRaw.filter((x) => typeof x === 'string')
+        : undefined;
+    return {
+        transcript,
+        rawComplaintText: rawComplaintText.trim() || transcript,
+        entities,
+        classifications: classifications.length
+            ? classifications
+            : [{ sectionNumber: primarySection, confidence: 0.5 }],
+        urgencyLevel: parseUrgency(o.urgency_level ?? o.urgencyLevel),
+        urgencyReason: asString(o.urgency_reason) ??
+            asString(o.urgencyReason) ??
+            'Review suggested based on automated analysis.',
+        severityScore: asNumber(o.severity_score) ??
+            asNumber(o.severityScore) ??
+            classifications[0]?.confidence ??
+            0.5,
+        victimRightsSummary: asString(victimRights.summary) ?? asString(victimRights.text) ?? asString(o.rights_summary),
+        victimRightsBullets,
+        modelVersion: asString(o.model_version) ?? asString(o.modelVersion) ?? 'ml-unknown',
+    };
+};
+exports.normalizeFullPipelineResponse = normalizeFullPipelineResponse;
+const fullPipelineToClassificationPayload = (p) => {
+    const sorted = [...p.classifications].sort((a, b) => b.confidence - a.confidence);
+    const primary = sorted[0];
+    const alternatives = sorted.slice(1).map((c) => ({
+        sectionNumber: c.sectionNumber,
+        confidence: c.confidence,
+        title: c.title,
+    }));
+    return {
+        primarySectionNumber: primary.sectionNumber,
+        primaryConfidence: primary.confidence,
+        alternatives,
+        urgencyLevel: p.urgencyLevel,
+        urgencyReason: p.urgencyReason,
+        severityScore: p.severityScore,
+        modelVersion: p.modelVersion,
+    };
+};
+exports.fullPipelineToClassificationPayload = fullPipelineToClassificationPayload;
+/** Classifier-only JSON (e.g. `/v1/classify` — IndicBERT multi-label without ASR). */
+const normalizeClassifyOnlyResponse = (json) => {
+    const o = asRecord(json);
+    let classifications = parseClassifications(o.classifications ?? o.bns_sections ?? o.labels);
+    const primaryFromField = asString(o.primary_section_number) ??
+        asString(o.primarySectionNumber) ??
+        classifications[0]?.sectionNumber;
+    const primarySection = primaryFromField ? String(primaryFromField).replace(/^§\s*/, '').trim() : '';
+    if (primarySection && classifications.length === 0) {
+        classifications = [
+            {
+                sectionNumber: primarySection,
+                confidence: asNumber(o.primary_confidence) ?? asNumber(o.primaryConfidence) ?? asNumber(o.confidence) ?? 0.72,
+            },
+        ];
+    }
+    if (!primarySection || classifications.length === 0) {
+        throw new Error('ML classify response missing BNS sections.');
+    }
+    const sorted = [...classifications].sort((a, b) => b.confidence - a.confidence);
+    const primary = sorted[0];
+    const alternatives = sorted.slice(1).map((c) => ({
+        sectionNumber: c.sectionNumber,
+        confidence: c.confidence,
+        title: c.title,
+    }));
+    return {
+        primarySectionNumber: primary.sectionNumber,
+        primaryConfidence: primary.confidence,
+        alternatives,
+        urgencyLevel: parseUrgency(o.urgency_level ?? o.urgencyLevel),
+        urgencyReason: asString(o.urgency_reason) ??
+            asString(o.urgencyReason) ??
+            'Review suggested based on automated classification.',
+        severityScore: asNumber(o.severity_score) ??
+            asNumber(o.severityScore) ??
+            primary.confidence ??
+            0.5,
+        modelVersion: asString(o.model_version) ?? asString(o.modelVersion) ?? 'ml-classify',
+    };
+};
+exports.normalizeClassifyOnlyResponse = normalizeClassifyOnlyResponse;
