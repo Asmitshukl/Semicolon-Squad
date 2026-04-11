@@ -23,6 +23,7 @@ const OfficerFIRListPage    = lazy(() => import('../pages/officer/OfficerFIRList
 const OfficerBNSLookupPage  = lazy(() => import('../pages/officer/OfficerBNSLookupPage').then(m => ({ default: m.OfficerBNSLookupPage })));
 const OfficerProfilePage    = lazy(() => import('../pages/officer/OfficerProfilePage').then(m => ({ default: m.OfficerProfilePage })));
 
+const AdminLayout             = lazy(() => import('../components/layout/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
 const AdminHome             = lazy(() => import('../pages/admin/AdminHome').then(m => ({ default: m.AdminHome })));
 const AdminOfficerPage      = lazy(() => import('../pages/admin/AdminOfficerPage').then(m => ({ default: m.AdminOfficerPage })));
 const AdminStationPage      = lazy(() => import('../pages/admin/AdminStationPage').then(m => ({ default: m.AdminStationPage })));
@@ -83,14 +84,19 @@ const router = createBrowserRouter([
     ],
   },
 
-  /* ── Admin portal (role-gated) ───────────────────────────────── */
+  /* ── Admin portal — layout + nested routes (public for UI work; restore PrivateRoute before prod.) ─ */
   {
-    element: <PrivateRoute allowedRoles={['admin']} />,
+    path: '/admin',
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <AdminLayout />
+      </Suspense>
+    ),
     children: [
-      { path: '/admin',               element: <Suspense fallback={<PageLoader />}><AdminHome /></Suspense> },
-      { path: '/admin/officers',      element: <Suspense fallback={<PageLoader />}><AdminOfficerPage /></Suspense> },
-      { path: '/admin/stations',      element: <Suspense fallback={<PageLoader />}><AdminStationPage /></Suspense> },
-      { path: '/admin/bns',           element: <Suspense fallback={<PageLoader />}><AdminBNSPage /></Suspense> },
+      { index: true, element: <Suspense fallback={<PageLoader />}><AdminHome /></Suspense> },
+      { path: 'officers', element: <Suspense fallback={<PageLoader />}><AdminOfficerPage /></Suspense> },
+      { path: 'stations', element: <Suspense fallback={<PageLoader />}><AdminStationPage /></Suspense> },
+      { path: 'bns', element: <Suspense fallback={<PageLoader />}><AdminBNSPage /></Suspense> },
     ],
   },
 
