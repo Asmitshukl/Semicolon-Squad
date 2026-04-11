@@ -17,6 +17,8 @@ interface AuthActions {
   setAuthData: (user: User, token: string, refreshToken: string) => void;
   /** Patch access token (called by silent refresh) */
   setToken: (token: string) => void;
+  /** Patch both tokens after refresh token rotation */
+  setSessionTokens: (token: string, refreshToken: string) => void;
   /** Optimistic user update (e.g. profile edit) */
   setUser: (user: User) => void;
   setLoading: (loading: boolean) => void;
@@ -44,6 +46,8 @@ export const useAuthStore = create<AuthStore>()(
         set({ user, token, refreshToken, isAuthenticated: true, error: null }),
 
       setToken: (token) => set({ token }),
+
+      setSessionTokens: (token, refreshToken) => set({ token, refreshToken }),
 
       setUser: (user) => set({ user }),
 

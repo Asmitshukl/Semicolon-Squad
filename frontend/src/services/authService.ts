@@ -31,6 +31,7 @@ export interface AuthResponse {
   user: User;
   token: string;
   refreshToken: string;
+  redirectTo: string;
 }
 
 export interface OfficerRegisterResponse {
@@ -61,8 +62,8 @@ export const authService = {
   },
 
   /** Exchange refresh token for new access token */
-  async refreshToken(refreshToken: string): Promise<{ token: string }> {
-    const { data } = await api.post<{ token: string }>('/auth/refresh', {
+  async refreshToken(refreshToken: string): Promise<AuthResponse> {
+    const { data } = await api.post<AuthResponse>('/auth/refresh', {
       refreshToken,
     });
     return data;

@@ -1,20 +1,20 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc -p tsconfig.json",
+    "dev": "npm run build && node --watch dist/server.js",
+    "start": "node dist/server.js",
+    "prisma:generate": "npx prisma generate --schema ../prisma/schema.prisma",
+    "prisma:push": "npx prisma db push --schema ../prisma/schema.prisma --url \"$DATABASE_URL\""
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "@types/bcrypt": "^6.0.0",
-    "@types/express": "^5.0.6",
-    "bcrypt": "^6.0.0",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
+    "@prisma/client": "^7.7.0",
+    "dotenv": "^17.4.1"
+  },
+  "devDependencies": {
+    "prisma": "^7.7.0",
     "typescript": "^6.0.2"
   }
 }

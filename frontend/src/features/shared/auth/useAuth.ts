@@ -37,16 +37,9 @@ export const useAuth = () => {
       try {
         setLoading(true);
         setError(null);
-        const { user, token, refreshToken } = await authService.login(credentials);
+        const { user, token, refreshToken, redirectTo } = await authService.login(credentials);
         setAuthData(user, token, refreshToken);
-
-        // Role-based redirect
-        const redirectMap: Record<string, string> = {
-          victim: '/victim',
-          officer: '/officer',
-          admin: '/admin',
-        };
-        navigate(redirectMap[user.role] ?? '/');
+        navigate(redirectTo);
       } catch (err) {
         const msg = extractMessage(err, 'Login failed. Please try again.');
         setError(msg);
@@ -64,9 +57,9 @@ export const useAuth = () => {
       try {
         setLoading(true);
         setError(null);
-        const { user, token, refreshToken } = await authService.victimRegister(data);
+        const { user, token, refreshToken, redirectTo } = await authService.victimRegister(data);
         setAuthData(user, token, refreshToken);
-        navigate('/victim');
+        navigate(redirectTo);
       } catch (err) {
         const msg = extractMessage(err, 'Registration failed. Please try again.');
         setError(msg);
