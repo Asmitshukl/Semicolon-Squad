@@ -75,20 +75,25 @@ const router = createBrowserRouter([
 
   /* ── Officer portal — NyayaSetu officer dashboard (role-gated) ─ */
   {
-    path: '/officer',
-    element: (
-      <Suspense fallback={<PageLoader />}>
-        <OfficerLayout />
-      </Suspense>
-    ),
+    element: <PrivateRoute allowedRoles={['officer']} />,
     children: [
-      { index: true, element: <Suspense fallback={<PageLoader />}><OfficerDashboard /></Suspense> },
-      { path: 'fir', element: <Suspense fallback={<PageLoader />}><FIRInbox /></Suspense> },
-      { path: 'fir/new', element: <Suspense fallback={<PageLoader />}><OfficerFIRNewPage /></Suspense> },
-      { path: 'fir/:firId', element: <Suspense fallback={<PageLoader />}><FIRDetail /></Suspense> },
-      { path: 'bns', element: <Suspense fallback={<PageLoader />}><BNSTranslator /></Suspense> },
-      { path: 'voice', element: <Suspense fallback={<PageLoader />}><VoiceStatements /></Suspense> },
-      { path: 'profile', element: <Suspense fallback={<PageLoader />}><OfficerProfile /></Suspense> },
+      {
+        path: '/officer',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <OfficerLayout />
+          </Suspense>
+        ),
+        children: [
+          { index: true, element: <Suspense fallback={<PageLoader />}><OfficerDashboard /></Suspense> },
+          { path: 'fir', element: <Suspense fallback={<PageLoader />}><FIRInbox /></Suspense> },
+          { path: 'fir/new', element: <Suspense fallback={<PageLoader />}><OfficerFIRNewPage /></Suspense> },
+          { path: 'fir/:firId', element: <Suspense fallback={<PageLoader />}><FIRDetail /></Suspense> },
+          { path: 'bns', element: <Suspense fallback={<PageLoader />}><BNSTranslator /></Suspense> },
+          { path: 'voice', element: <Suspense fallback={<PageLoader />}><VoiceStatements /></Suspense> },
+          { path: 'profile', element: <Suspense fallback={<PageLoader />}><OfficerProfile /></Suspense> },
+        ],
+      },
     ],
   },
 

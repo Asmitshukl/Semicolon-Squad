@@ -18,6 +18,9 @@ type BackendBnsSection = {
   sectionTitle: string;
   ipcEquivalent: string | null;
   ipcTitle: string | null;
+  ipcDescription: string | null;
+  description: string | null;
+  mappingReasoning: string | null;
   maxImprisonmentMonths: number | null;
   isLifeOrDeath: boolean;
   isCognizable: boolean;
@@ -179,6 +182,16 @@ const mapFir = (fir: BackendFIR): MockFIR => {
     ),
     aiSummaryDefault: fir.aiGeneratedSummary || fir.incidentDescription,
     voiceNote: `${voiceCount} voice recording${voiceCount === 1 ? '' : 's'}`,
+    sectionMappings: fir.bnsSections.map((section) => ({
+      sectionNumber: section.sectionNumber,
+      sectionTitle: section.sectionTitle,
+      ipcEquivalent: section.ipcEquivalent,
+      ipcTitle: section.ipcTitle,
+      reasoning: section.mappingReasoning,
+      description: section.description,
+      cognizable: section.isCognizable,
+      bailable: section.isBailable,
+    })),
     timeline: buildTimeline(fir),
     checklistVoiceOk: verifiedVoice,
   };
@@ -197,6 +210,11 @@ const mapVoiceRecording = (recording: BackendVoiceRecording, index: number): Voi
 });
 
 export const officerService = {
+  async createFIR(payload: Record<string, unknown>) {
+    const { data } = await api.post<{ success: true; data: BackendFIR }>('/officer/fir/create', payload);
+    return data.data;
+  },
+
   async getDashboard() {
     const { data } = await api.get<{ success: true; data: DashboardResponse }>('/officer/dashboard');
     return {

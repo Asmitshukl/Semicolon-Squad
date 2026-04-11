@@ -14,14 +14,9 @@ const server_shared_1 = require("../../server.shared");
 const enums_1 = require("../../generated/prisma/enums");
 class FIRController {
     static async createFIR(req, res, body) {
-        const user = await (0, auth_middleware_1.getAuthenticatedUser)(req, [enums_1.Role.VICTIM, enums_1.Role.OFFICER]);
-        // For officers, they need to specify victimId in the request body. For victims, use their own ID.
-        const victimId = user.role === enums_1.Role.VICTIM ? user.id : body.victimId;
-        if (!victimId) {
-            throw new ApiError_1.ApiError(400, 'Victim ID is required');
-        }
+        const user = await (0, auth_middleware_1.getAuthenticatedUser)(req, [enums_1.Role.VICTIM]);
         const fir = await fir_service_1.FIRService.createFIR({
-            victimId,
+            victimId: user.id,
             stationId: body.stationId,
             incidentDate: new Date(body.incidentDate),
             incidentTime: body.incidentTime,
@@ -173,6 +168,7 @@ class FIRController {
             firId: typeof body.firId === 'string' ? body.firId : undefined,
             languageCode: typeof body.language === 'string' ? body.language : 'hi',
             durationSecs: Number.isFinite(durationSecs) ? durationSecs : undefined,
+            rawText: typeof body.rawText === 'string' ? body.rawText : undefined,
             buffer: audioBuffer,
             filename: typeof body.audioFilename === 'string' ? body.audioFilename : 'recording.webm',
             mimeType: typeof body.audioMimeType === 'string' ? body.audioMimeType : 'audio/webm',

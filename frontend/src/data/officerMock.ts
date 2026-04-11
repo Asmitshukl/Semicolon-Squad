@@ -37,6 +37,16 @@ export type MockFIR = {
   statementTags: string[];
   aiSummaryDefault: string;
   voiceNote: string;
+  sectionMappings: Array<{
+    sectionNumber: string;
+    sectionTitle: string;
+    ipcEquivalent: string | null;
+    ipcTitle: string | null;
+    reasoning?: string | null;
+    description?: string | null;
+    cognizable: boolean;
+    bailable: boolean;
+  }>;
   timeline: TimelineEntry[];
   checklistVoiceOk: boolean;
 };
@@ -70,6 +80,7 @@ const base = (partial: Partial<MockFIR> & Pick<MockFIR, 'id' | 'firNo' | 'urgenc
   aiSummaryDefault:
     'Complainant alleges assault and threats by two unknown persons at Connaught Place inner circle on the night of 11–12 Apr 2024. Complainant requests protection and registration of FIR under relevant BNS provisions.',
   voiceNote: '1 voice recording',
+  sectionMappings: [],
   timeline: [
     { action: 'FIR received from victim portal', time: '09 Apr 2024, 09:41:03 AM' },
     { action: 'AI summary generated', time: '09 Apr 2024, 09:41:18 AM' },

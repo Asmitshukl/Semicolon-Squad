@@ -3,6 +3,7 @@ import { Mic, Square, Upload, Loader2 } from 'lucide-react';
 import { WaveformDisplay } from './WaveformDisplay';
 import { officerService } from '../../services/officerService';
 import type { MockFIR, VoiceRec } from '../../data/officerMock';
+import { useNavigate } from 'react-router-dom';
 
 type Props = {
   onUploaded?: (recording: VoiceRec) => void;
@@ -61,9 +62,11 @@ const formatTime = (totalSeconds: number) => {
 };
 
 export const VoiceRecorder = ({ onUploaded }: Props) => {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [generatingFir, setGeneratingFir] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [language, setLanguage] = useState('hi');
   const [firId, setFirId] = useState('');
@@ -73,6 +76,7 @@ export const VoiceRecorder = ({ onUploaded }: Props) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [uploadedRecording, setUploadedRecording] = useState<VoiceRec | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -123,6 +127,7 @@ export const VoiceRecorder = ({ onUploaded }: Props) => {
     setTranscript('');
     setFinalTranscript('');
     setAudioBlob(null);
+    setUploadedRecording(null);
     setError(null);
     setSuccess(null);
     finalPartsRef.current = [];
@@ -248,6 +253,7 @@ export const VoiceRecorder = ({ onUploaded }: Props) => {
       payload.append('audio', audioBlob, `voice-statement.${audioBlob.type.includes('ogg') ? 'ogg' : 'webm'}`);
       payload.append('language', language);
       if (firId) payload.append('firId', firId);
+      if (finalTranscript || transcript) payload.append('rawText', (finalTranscript || transcript).trim());
       payload.append('durationSecs', String(Math.max(1, elapsed)));
 
       const uploaded = await officerService.uploadVoiceRecording(payload);
@@ -255,6 +261,7 @@ export const VoiceRecorder = ({ onUploaded }: Props) => {
         ...uploaded,
         transcript: uploaded.transcript || transcript || finalTranscript,
       };
+      setUploadedRecording(merged);
       setTranscript(merged.transcript || '');
       setFinalTranscript(merged.transcript || '');
       setSuccess(
@@ -267,6 +274,24 @@ export const VoiceRecorder = ({ onUploaded }: Props) => {
       setError(err instanceof Error ? err.message : 'Upload failed.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleGenerateFir = async () => {
+    if (!uploadedRecording) {
+      setError('Upload the voice recording first.');
+      return;
+    }
+    try {
+      setGeneratingFir(true);
+      setError(null);
+      const fir = await officerService.generateFIRFromRecording(uploadedRecording.id);
+      setSuccess(`Draft FIR ${fir.firNo} generated with BNS and IPC mapping.`);
+      navigate(`/officer/fir/${fir.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate FIR from recording.');
+    } finally {
+      setGeneratingFir(false);
     }
   };
 
@@ -356,7 +381,7 @@ export const VoiceRecorder = ({ onUploaded }: Props) => {
               <div className="space-y-2 text-sm text-[#D1D5DB]">
                 <p>{audioBlob ? 'Audio clip captured' : 'Waiting for recording'}</p>
                 <p>{finalTranscript || transcript ? 'Transcript ready for review' : 'Transcript pending'}</p>
-                <p>{selectedFir ? `Will link to ${selectedFir.firNo}` : 'Optional: leave unlinked for later FIR mapping'}</p>
+                <p>{selectedFir ? `Will link to ${selectedFir.firNo}` : 'Ready to generate a new FIR draft after upload'}</p>
               </div>
               <button
                 type="button"
@@ -367,6 +392,17 @@ export const VoiceRecorder = ({ onUploaded }: Props) => {
                 {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 {uploading ? 'Processing Recording' : 'Upload, Transcribe, Link'}
               </button>
+              {!selectedFir && uploadedRecording ? (
+                <button
+                  type="button"
+                  onClick={() => void handleGenerateFir()}
+                  disabled={recording || uploading || generatingFir}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#F97316]/40 bg-[#F97316]/10 px-4 py-3 text-xs font-extrabold uppercase tracking-wide text-[#FDBA74] hover:bg-[#F97316]/15 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {generatingFir ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {generatingFir ? 'Generating FIR Draft' : 'Generate FIR Report'}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

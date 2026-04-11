@@ -15,6 +15,7 @@ const normalize_1 = require("../ml/normalize");
 const complaint_service_1 = require("../victim/complaint.service");
 const statement_service_1 = require("../victim/statement.service");
 const summary_service_1 = require("./summary.service");
+const localPipeline_1 = require("../ml/localPipeline");
 const languageToIso = (language) => {
     switch (language) {
         case 'HINDI':
@@ -78,6 +79,9 @@ class VoiceRecordingService {
             fileUrl: relativePath,
             durationSecs: input.durationSecs,
         });
+        if (input.rawText?.trim()) {
+            await this.attachTranscriptFallback(recording.id, input.rawText);
+        }
         const processed = await this.processVoiceRecording(recording.id);
         return processed;
     }
@@ -200,12 +204,29 @@ class VoiceRecordingService {
                 : node_path_1.default.join(process.cwd(), recording.fileUrl);
             const audioBuffer = await promises_1.default.readFile(absolutePath);
             const isoLanguage = languageToIso(recording.language);
-            if (!env_1.env.mlServiceUrl) {
-                throw new Error('ML_SERVICE_URL is required for audio transcription.');
-            }
-            const normalized = await (0, mlClient_1.remotePipelineAudio)(audioBuffer, node_path_1.default.basename(absolutePath), `audio/${extensionFromMime(undefined, absolutePath)}`, {
-                language: isoLanguage,
-            });
+            const transcriptFallback = (recording.transcript ?? '').trim();
+            const normalized = env_1.env.mlServiceUrl
+                ? await (0, mlClient_1.remotePipelineAudio)(audioBuffer, node_path_1.default.basename(absolutePath), `audio/${extensionFromMime(undefined, absolutePath)}`, {
+                    language: isoLanguage,
+                    raw_text: transcriptFallback,
+                    rawText: transcriptFallback,
+                    rawComplaintText: transcriptFallback,
+                }).catch(async () => {
+                    if (!transcriptFallback) {
+                        throw new Error('ML audio pipeline failed and no transcript fallback is available.');
+                    }
+                    const local = await (0, localPipeline_1.buildLocalFullPipelineFromText)(transcriptFallback);
+                    local.transcript = transcriptFallback;
+                    return local;
+                })
+                : transcriptFallback
+                    ? await (0, localPipeline_1.buildLocalFullPipelineFromText)(transcriptFallback).then((local) => ({
+                        ...local,
+                        transcript: transcriptFallback,
+                    }))
+                    : (() => {
+                        throw new Error('ML_SERVICE_URL is required for audio transcription.');
+                    })();
             const transcript = (normalized.transcript || normalized.rawComplaintText || '').trim();
             if (!transcript) {
                 throw new Error('Transcript is empty after ML processing.');
@@ -246,6 +267,21 @@ class VoiceRecordingService {
             console.error('Error processing voice recording:', error);
             throw new ApiError_1.ApiError(500, 'Failed to process voice recording');
         }
+    }
+    static async attachTranscriptFallback(recordingId, transcript) {
+        const cleaned = String(transcript ?? '').trim();
+        if (!cleaned) {
+            return this.getVoiceRecording(recordingId);
+        }
+        return database_1.prisma.voiceRecording.update({
+            where: { id: recordingId },
+            data: { transcript: cleaned },
+            include: {
+                user: true,
+                fir: true,
+                victimStatement: true,
+            },
+        });
     }
 }
 exports.VoiceRecordingService = VoiceRecordingService;

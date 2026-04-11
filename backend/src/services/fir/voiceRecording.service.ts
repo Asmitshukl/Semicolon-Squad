@@ -11,6 +11,7 @@ import { fullPipelineToClassificationPayload } from '../ml/normalize';
 import { persistVictimClassification } from '../victim/complaint.service';
 import { victimLanguageFromCode } from '../victim/statement.service';
 import { FIRSummaryService } from './summary.service';
+import { buildLocalFullPipelineFromText } from '../ml/localPipeline';
 
 export interface createVoiceRecordingInput {
   userId: string;
@@ -25,6 +26,7 @@ export interface storeVoiceUploadInput {
   firId?: string;
   languageCode?: string;
   durationSecs?: number;
+  rawText?: string;
   buffer: Buffer;
   filename?: string;
   mimeType?: string;
@@ -92,6 +94,10 @@ export class VoiceRecordingService {
       fileUrl: relativePath,
       durationSecs: input.durationSecs,
     });
+
+    if (input.rawText?.trim()) {
+      await this.attachTranscriptFallback(recording.id, input.rawText);
+    }
 
     const processed = await this.processVoiceRecording(recording.id);
     return processed;
@@ -231,18 +237,35 @@ export class VoiceRecordingService {
       const audioBuffer = await fs.readFile(absolutePath);
       const isoLanguage = languageToIso(recording.language);
 
-      if (!env.mlServiceUrl) {
-        throw new Error('ML_SERVICE_URL is required for audio transcription.');
-      }
-
-      const normalized = await remotePipelineAudio(
-        audioBuffer,
-        path.basename(absolutePath),
-        `audio/${extensionFromMime(undefined, absolutePath)}`,
-        {
-          language: isoLanguage,
-        },
-      );
+      const transcriptFallback = (recording.transcript ?? '').trim();
+      const normalized =
+        env.mlServiceUrl
+          ? await remotePipelineAudio(
+              audioBuffer,
+              path.basename(absolutePath),
+              `audio/${extensionFromMime(undefined, absolutePath)}`,
+              {
+                language: isoLanguage,
+                raw_text: transcriptFallback,
+                rawText: transcriptFallback,
+                rawComplaintText: transcriptFallback,
+              },
+            ).catch(async () => {
+              if (!transcriptFallback) {
+                throw new Error('ML audio pipeline failed and no transcript fallback is available.');
+              }
+              const local = await buildLocalFullPipelineFromText(transcriptFallback);
+              local.transcript = transcriptFallback;
+              return local;
+            })
+          : transcriptFallback
+            ? await buildLocalFullPipelineFromText(transcriptFallback).then((local) => ({
+                ...local,
+                transcript: transcriptFallback,
+              }))
+            : (() => {
+                throw new Error('ML_SERVICE_URL is required for audio transcription.');
+              })();
 
       const transcript = (normalized.transcript || normalized.rawComplaintText || '').trim();
       if (!transcript) {
@@ -288,5 +311,22 @@ export class VoiceRecordingService {
       console.error('Error processing voice recording:', error);
       throw new ApiError(500, 'Failed to process voice recording');
     }
+  }
+
+  static async attachTranscriptFallback(recordingId: string, transcript?: string | null) {
+    const cleaned = String(transcript ?? '').trim();
+    if (!cleaned) {
+      return this.getVoiceRecording(recordingId);
+    }
+
+    return prisma.voiceRecording.update({
+      where: { id: recordingId },
+      data: { transcript: cleaned },
+      include: {
+        user: true,
+        fir: true,
+        victimStatement: true,
+      },
+    });
   }
 }
