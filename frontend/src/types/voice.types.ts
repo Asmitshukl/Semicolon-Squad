@@ -1,0 +1,1 @@
+﻿export interface VoiceRecording { id: string; language: string; }

@@ -1,0 +1,1 @@
+﻿export const urgencyColor = (level: string) => level;

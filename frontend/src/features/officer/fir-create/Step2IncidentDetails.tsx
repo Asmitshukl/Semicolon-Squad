@@ -1,0 +1,1 @@
+﻿export const Step2IncidentDetails = () => null;

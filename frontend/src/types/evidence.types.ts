@@ -1,0 +1,1 @@
+﻿export interface EvidenceItem { id: string; collected: boolean; }

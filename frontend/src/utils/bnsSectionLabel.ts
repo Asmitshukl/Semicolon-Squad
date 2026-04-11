@@ -1,0 +1,1 @@
+﻿export const bnsSectionLabel = (sec: string) => sec;

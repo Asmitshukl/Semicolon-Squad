@@ -1,0 +1,1 @@
+﻿export const LanguageSelector = () => null;

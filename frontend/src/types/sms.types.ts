@@ -1,0 +1,1 @@
+﻿export type SMSStatus = 'PENDING' | 'SENT' | 'FAILED';
