@@ -56,11 +56,12 @@ api.interceptors.response.use(
       }
 
       try {
-        const { data } = await axios.post<{ token: string }>(
+        const { data } = await axios.post<{ token: string; refreshToken: string }>(
           `${BASE_URL}/auth/refresh`,
           { refreshToken: storedRefresh },
+          { withCredentials: true },
         );
-        useAuthStore.getState().setToken(data.token);
+        useAuthStore.getState().setSessionTokens(data.token, data.refreshToken);
         processQueue(null, data.token);
         original.headers.Authorization = `Bearer ${data.token}`;
         return api(original);
