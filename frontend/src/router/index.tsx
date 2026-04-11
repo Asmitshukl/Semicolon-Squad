@@ -13,6 +13,7 @@ const VictimStatementPage   = lazy(() => import('../pages/victim/VictimStatement
 const VictimClassifyPage    = lazy(() => import('../pages/victim/VictimClassifyPage').then(m => ({ default: m.VictimClassifyPage })));
 
 const VictimTrackerPage     = lazy(() => import('../pages/victim/VictimTrackerPage').then(m => ({ default: m.VictimTrackerPage })));
+const VictimRightsPage      = lazy(() => import('../pages/victim/VictimRightsPage').then(m => ({ default: m.VictimRightsPage })));
 const VictimProfilePage     = lazy(() => import('../pages/victim/VictimProfilePage').then(m => ({ default: m.VictimProfilePage })));
 
 const OfficerHome           = lazy(() => import('../pages/officer/OfficerHome').then(m => ({ default: m.OfficerHome })));
@@ -60,6 +61,7 @@ const router = createBrowserRouter([
   { path: '/victim',           element: <Suspense fallback={<PageLoader />}><LandingHome /></Suspense> },
   { path: '/victim/statement', element: <Suspense fallback={<PageLoader />}><VictimStatementPage /></Suspense> },
   { path: '/victim/classify',  element: <Suspense fallback={<PageLoader />}><VictimClassifyPage /></Suspense> },
+  { path: '/victim/rights',    element: <Suspense fallback={<PageLoader />}><VictimRightsPage /></Suspense> },
   { path: '/victim/tracker',   element: <Suspense fallback={<PageLoader />}><VictimTrackerPage /></Suspense> },
   { path: '/victim/profile',   element: <Suspense fallback={<PageLoader />}><VictimProfilePage /></Suspense> },
 

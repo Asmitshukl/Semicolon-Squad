@@ -163,7 +163,7 @@ const getT = (isDark: boolean) => ({
 /* ══════════════════════════════════════════════════════════════════
    LANDING HOME — NyayaSetu Victim Dashboard
 ══════════════════════════════════════════════════════════════════ */
-export const LandingHome = () => {
+export const VictimRightsPage = () => {
   const user      = useAuthStore(s => s.user);
   const storeOut  = useAuthStore(s => s.logout);
   const navigate  = useNavigate();
@@ -199,7 +199,6 @@ export const LandingHome = () => {
         <Scale size={800} color={isDark ? '#FFF' : '#000'} strokeWidth={1} />
       </div>
 
-      {/* Everything else gets relative positioning so it sits above the watermark */}
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         
         {/* ══ Tricolor stripe ══════════════════════════════════════ */}
@@ -333,290 +332,72 @@ export const LandingHome = () => {
       {/* ══ PAGE CONTENT ═════════════════════════════════════════ */}
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 96px' }}>
 
-        {/* ────────────────────────────────────────────────────────
-            SECTION 1 — Greeting
-        ─────────────────────────────────────────────────────── */}
-        <section style={{ paddingTop: 60, paddingBottom: 52 }}>
-          {/* Micro-label */}
-          <div style={T.label}>स्वागत है &nbsp;·&nbsp; VICTIM PORTAL</div>
 
-          {/* Main greeting */}
-          <h1 style={{
-            marginTop: 14, marginBottom: 0,
-            fontSize: 'clamp(28px, 4vw, 40px)',
-            fontWeight: 800, letterSpacing: '-0.03em',
-            color: T.white, lineHeight: 1.1,
-          }}>
-            {getGreeting()}, {firstName}.
-          </h1>
-
-          {/* Subtitle */}
-          <p style={{ marginTop: 10, fontSize: 15, color: T.muted, lineHeight: 1.6, maxWidth: 480 }}>
-            Your case details, legal rights, and tools — all in one secure place.
-          </p>
-
-          {/* Text-links */}
-          <div style={{ marginTop: 22, display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-            <Link to="/victim/statement" style={{ fontSize: 14, fontWeight: 600, color: T.accent, textDecoration: 'none' }}>
-              Describe an incident →
-            </Link>
-            <Link to="/victim/tracker" style={{ fontSize: 14, fontWeight: 600, color: T.accent, textDecoration: 'none' }}>
-              Track your case →
-            </Link>
-          </div>
-        </section>
 
         {/* ────────────────────────────────────────────────────────
-            SECTION 2 — Stats row (no cards, just numbers)
+            SECTION 5 — Rights (60%) + Notifications (40%)
         ─────────────────────────────────────────────────────── */}
-        <section style={{ paddingBottom: 56 }}>
-          <div style={{ display: 'flex', overflowX: 'auto' }}>
-            {STATS.map(({ value, label, labelHi }, idx) => (
-              <div key={label} style={{
-                flex: 1, minWidth: 110,
-                padding: '0 28px',
-                textAlign: 'center',
-                borderLeft: idx > 0 ? T.divider : 'none',
-              }}>
-                <div style={{
-                  fontSize: 'clamp(28px, 3.5vw, 38px)',
-                  fontWeight: 800, letterSpacing: '-0.03em',
-                  color: T.white, lineHeight: 1,
-                }}>
-                  {value}
-                </div>
-                <div style={{ marginTop: 6, fontSize: 12, color: T.muted, fontWeight: 500 }}>{label}</div>
-                <div style={{ fontSize: 11, color: T.ultraMuted, marginTop: 2 }}>{labelHi}</div>
-              </div>
-            ))}
-          </div>
-        </section>
+        <section style={{ paddingTop: 60 }}>
+          <div className="grid grid-cols-1 lg:grid-cols-5" style={{ gap: 24 }}>
 
-        {/* ────────────────────────────────────────────────────────
-            SECTION 3 — Actions 2×2 grid
-        ─────────────────────────────────────────────────────── */}
-        <section style={{ paddingBottom: 56 }}>
-          <div style={{ ...T.label, marginBottom: 20 }}>
-            क्या चाहिए आपको? &nbsp;·&nbsp; What do you need?
-          </div>
+            {/* ── Left: Your Rights (3/5 = 60%) ─────────────── */}
+            <div className="lg:col-span-3">
+              <div style={T.label}>आपके अधिकार</div>
+              <div style={{ ...T.sectionHd, marginTop: 4, marginBottom: 16 }}>Your Rights</div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" style={{ gap: 12 }}>
-            {ACTIONS.map(({ icon: Icon, title, titleHi, desc, href }) => (
-              <Link key={title} to={href} style={{ textDecoration: 'none', display: 'block' }}>
-                <div
-                  style={{
-                    background: T.cardBg, border: T.cardBdr,
-                    borderRadius: 12, padding: '20px 20px 16px',
-                    display: 'flex', flexDirection: 'column', gap: 10,
-                    height: '100%',
-                    transition: 'opacity 0.15s, transform 0.15s',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-2px)' }}
-                  onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)' }}
-                >
-                  <Icon size={20} style={{ color: T.accent }} strokeWidth={1.5} />
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: T.white, lineHeight: 1.3 }}>{title}</div>
-                    <div style={{ fontSize: 11, color: T.ultraMuted, marginTop: 2 }}>{titleHi}</div>
-                  </div>
-                  <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.55, flex: 1 }}>{desc}</div>
-                  <div style={{ fontSize: 12, color: T.muted, display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                    Open <ArrowRight size={11} />
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* ────────────────────────────────────────────────────────
-            SECTION 5 — Discover (Police Dept Cards)
-        ─────────────────────────────────────────────────────── */}
-        <section style={{ paddingBottom: 56 }}>
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={T.label}>विभाग</div>
-            <div style={{ ...T.sectionHd, marginTop: 4, fontSize: 24 }}>Explore the Department</div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Top row: 3 cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: 16 }}>
-              {[
-                { img: '/images/flag.png', title: 'Overview' },
-                { img: '/images/vehicle.png', title: 'Dedicated Service' },
-                { img: '/images/heroes.png', title: 'Join the Force' },
-              ].map(c => (
-                <div key={c.title} style={{
-                  position: 'relative', borderRadius: 12, overflow: 'hidden', height: 260,
-                  cursor: 'pointer', transition: 'transform 0.2s', border: T.cardBdr
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}
-                >
-                  <img src={c.img} alt={c.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <div style={{
-                    position: 'absolute', bottom: 0, left: 0, right: 0,
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%)',
-                    padding: '40px 20px 16px', display: 'flex', justifyContent: 'center'
+              <div style={{ background: T.caseBg, border: T.cardBdr, borderRadius: 12, overflow: 'hidden' }}>
+                {RIGHTS.map((r, idx) => (
+                  <div key={r.title} style={{
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    padding: '14px 20px',
+                    borderBottom: idx < RIGHTS.length - 1 ? T.divider : 'none',
+                    background: r.highlight ? (isDark ? 'rgba(249,115,22,0.06)' : 'rgba(249,115,22,0.1)') : 'transparent',
                   }}>
-                    <span style={{ color: '#fff', fontSize: 16, fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{c.title}</span>
+                    <CheckCircle2
+                      size={15}
+                      style={{ color: r.highlight ? T.accent : '#22c55e', flexShrink: 0 }}
+                      strokeWidth={2}
+                    />
+                    <div style={{ flex: 1, fontSize: 14, color: r.highlight ? T.accent : T.offWhite, fontWeight: r.highlight ? 600 : 400 }}>
+                      {r.title}
+                    </div>
+                    <div style={{ fontSize: 11, color: T.ultraMuted, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      {r.basis}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
-            {/* Bottom row: 2 cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 16 }}>
-              {[
-                { img: '/images/community.png', title: 'Community & Trust' },
-                { img: '/images/wellness.png', title: 'Center for Officer Wellness' },
-              ].map(c => (
-                <div key={c.title} style={{
-                  position: 'relative', borderRadius: 12, overflow: 'hidden', height: 320,
-                  cursor: 'pointer', transition: 'transform 0.2s', border: T.cardBdr
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}
-                >
-                   <img src={c.img} alt={c.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                   <div style={{
-                    position: 'absolute', bottom: 0, left: 0, right: 0,
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)',
-                    padding: '40px 20px 20px', display: 'flex', justifyContent: 'center'
+            {/* ── Right: Notifications (2/5 = 40%) ─────────── */}
+            <div className="lg:col-span-2">
+              <div style={T.label}>सूचनाएं</div>
+              <div style={{ ...T.sectionHd, marginTop: 4, marginBottom: 16 }}>Recent Notifications</div>
+
+              <div style={{ background: T.caseBg, border: T.cardBdr, borderRadius: 12, overflow: 'hidden' }}>
+                {NOTIFICATIONS.map((n, idx) => (
+                  <div key={idx} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 12,
+                    padding: '13px 16px',
+                    borderBottom: idx < NOTIFICATIONS.length - 1 ? T.divider : 'none',
                   }}>
-                    <span style={{ color: '#fff', fontSize: 18, fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{c.title}</span>
+                    {/* Status dot */}
+                    <span style={{
+                      display: 'inline-block', width: 7, height: 7,
+                      borderRadius: '50%', background: SMS_COLOR[n.status],
+                      flexShrink: 0, marginTop: 5,
+                    }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, color: T.offWhite, lineHeight: 1.45 }}>{n.message}</div>
+                      <div style={{ fontSize: 11, color: T.ultraMuted, marginTop: 3 }}>{n.time}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ────────────────────────────────────────────────────────
-            SECTION 6 — Follow Us / Socials
-        ─────────────────────────────────────────────────────── */}
-        <section style={{ paddingTop: 24, paddingBottom: 56 }}>
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={T.label}>हमसे जुड़ें</div>
-            <div style={{ ...T.sectionHd, marginTop: 4, fontSize: 24 }}>Follow Us</div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4" style={{ gap: 16 }}>
-            
-            {/* Website Card */}
-            <a href="https://bprd.nic.in" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-              <div style={{ 
-                background: T.caseBg, border: T.cardBdr, borderRadius: 12, display: 'flex', flexDirection: 'column', 
-                height: '100%', minHeight: 300, cursor: 'pointer', overflow: 'hidden', transition: 'transform 0.15s, box-shadow 0.15s' 
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)' }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
-                <div style={{ padding: 20, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(249,115,22,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-                    <Globe size={32} style={{ color: T.accent }} />
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: T.white, marginBottom: 8, textAlign: 'center' }}>BPR&D Official Portal</div>
-                  <div style={{ fontSize: 14, color: T.muted, marginBottom: 24 }}>bprd.nic.in</div>
-                  <div style={{ fontSize: 13, background: T.iconBg, padding: '8px 20px', borderRadius: 20, color: T.white, fontWeight: 600 }}>
-                    Visit Website
-                  </div>
-                </div>
-              </div>
-            </a>
-
-            {/* X (Twitter) Card */}
-            <a href="https://twitter.com/BPRDIndia" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-              <div style={{ 
-                background: T.caseBg, border: T.cardBdr, borderRadius: 12, display: 'flex', flexDirection: 'column', 
-                height: '100%', minHeight: 300, cursor: 'pointer', overflow: 'hidden', transition: 'transform 0.15s, box-shadow 0.15s' 
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)' }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
-                <div style={{ padding: 24, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-                    <TwitterIcon size={24} style={{ color: T.white }} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: T.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <ChakraIcon size={22} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: T.white }}>BPR&D India</div>
-                      <div style={{ fontSize: 13, color: T.muted }}>@BPRDIndia</div>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 14, color: T.offWhite, lineHeight: 1.5, marginBottom: 24, flex: 1 }}>
-                    Official updates and announcements from Bureau of Police Research & Development are shared here.
-                  </div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: T.white }}>
-                    Follow BPR&D India on X
-                  </div>
-                </div>
-              </div>
-            </a>
-
-            {/* Instagram Card */}
-            <a href="https://instagram.com/bprdindia" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-              <div style={{ 
-                background: T.caseBg, border: T.cardBdr, borderRadius: 12, display: 'flex', flexDirection: 'column', 
-                height: '100%', minHeight: 300, cursor: 'pointer', overflow: 'hidden', transition: 'transform 0.15s, box-shadow 0.15s' 
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)' }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
-                <div style={{ padding: 20, display: 'flex', justifyContent: 'center' }}>
-                  <InstagramIcon size={24} style={{ color: T.white }} />
-                </div>
-                <div style={{ flex: 1, background: T.iconBg, margin: '0 20px', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: `1px solid ${T.divider}` }}>
-                  <InstagramIcon size={44} style={{ color: '#E1306C', marginBottom: 16 }} />
-                  <div style={{ fontSize: 13, fontWeight: 600, color: T.white }}>View this profile on Instagram</div>
-                  <div style={{ fontSize: 12, color: T.muted, marginTop: 6, fontWeight: 500 }}>@bprdindia</div>
-                  <div style={{ fontSize: 12, color: T.ultraMuted, marginTop: 2 }}>1,845 followers</div>
-                </div>
-                <div style={{ padding: 20, display: 'flex', gap: 12 }}>
-                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: T.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: 12, height: 12, border: `2px solid ${T.muted}`, borderRadius: '50%' }}></div>
-                  </div>
-                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: T.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: 12, height: 4, background: T.muted, borderRadius: 2 }}></div>
-                  </div>
-                </div>
-              </div>
-            </a>
-
-            {/* Facebook Card */}
-             <a href="https://facebook.com/officialBPRDIndia" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-              <div style={{ 
-                background: T.caseBg, border: T.cardBdr, borderRadius: 12, display: 'flex', flexDirection: 'column', 
-                height: '100%', minHeight: 300, cursor: 'pointer', overflow: 'hidden', transition: 'transform 0.15s, box-shadow 0.15s' 
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)' }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
-                <div style={{ padding: '16px 20px', borderBottom: T.divider, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <FacebookIcon size={18} fill="white" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: T.white }}>BPR&D</div>
-                      <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>2,726 likes</div>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: 600, background: T.iconBg, padding: '6px 10px', borderRadius: 6, color: T.white }}>Follow Page</div>
-                </div>
-                <div style={{ padding: 24, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <div style={{ fontSize: 14, color: T.offWhite, lineHeight: 1.5, marginBottom: 20 }}>
-                    Welcome to the official Facebook page of Bureau of Police Research & Development (BPR&D).
-                  </div>
-                  <div style={{ height: 110, background: T.iconBg, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${T.divider}` }}>
-                    <FacebookIcon size={36} style={{ color: T.muted, opacity: 0.4 }} />
-                  </div>
-                </div>
-              </div>
-            </a>
-
-          </div>
-        </section>
       </main>
 
       {/* ══ FOOTER ═══════════════════════════════════════════════ */}
@@ -634,9 +415,9 @@ export const LandingHome = () => {
           </span>
         </div>
       </footer>
-      </div> {/* End of zIndex wrapper */}
+      </div>
     </div>
   );
 };
 
-export default LandingHome;
+export default VictimRightsPage;
