@@ -3,12 +3,15 @@ export type FIRStatus = 'AI Ready' | 'Under Review' | 'Document Generated' | 'Si
 
 export type VoiceRec = {
   id: string;
+  firId?: string;
   firNo: string;
   label: string;
   duration: string;
   language: string;
   verified: boolean;
   recordedAt: string;
+  transcript?: string;
+  audioUrl?: string;
 };
 
 export type TimelineEntry = { action: string; time: string };

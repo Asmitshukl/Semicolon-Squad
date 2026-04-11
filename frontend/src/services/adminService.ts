@@ -1,4 +1,5 @@
 import api from './api';
+import { authService, type OfficerRegisterData } from './authService';
 
 export type AdminStationPayload = {
   name: string;
@@ -14,9 +15,31 @@ export type AdminStationPayload = {
   jurisdictionArea?: string;
 };
 
+export type AdminDashboardResponse = {
+  stats: {
+    pendingOfficerActions: number;
+    policeStations: number;
+    firsFiled24h: number;
+    bnsSectionsLive: number;
+  };
+  recentOfficers: Array<{
+    id: string;
+    badgeNumber: string;
+    verificationStatus: string;
+    submittedAt: string;
+    name: string;
+    stationName: string;
+  }>;
+  systemStatus: {
+    lastSync: string;
+    apiGateway: string;
+    auditLogStream: string;
+  };
+};
+
 export const adminService = {
-  async getDashboard() {
-    const { data } = await api.get('/admin/dashboard');
+  async getDashboard(): Promise<AdminDashboardResponse> {
+    const { data } = await api.get<AdminDashboardResponse>('/admin/dashboard');
     return data;
   },
 
@@ -33,6 +56,10 @@ export const adminService = {
       action,
     });
     return data;
+  },
+
+  async createOfficer(payload: OfficerRegisterData) {
+    return authService.officerRegister(payload);
   },
 
   async listStations() {

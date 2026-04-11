@@ -5,6 +5,9 @@ const fir_service_1 = require("../../services/fir/fir.service");
 const voiceRecording_service_1 = require("../../services/fir/voiceRecording.service");
 const evidenceChecklist_service_1 = require("../../services/fir/evidenceChecklist.service");
 const anomalyDetection_service_1 = require("../../services/fir/anomalyDetection.service");
+const pdf_service_1 = require("../../services/fir/pdf.service");
+const summary_service_1 = require("../../services/fir/summary.service");
+const fir_notification_service_1 = require("../../services/notification/fir.notification.service");
 const auth_middleware_1 = require("../../middleware/auth.middleware");
 const ApiError_1 = require("../../utils/ApiError");
 const server_shared_1 = require("../../server.shared");
@@ -50,6 +53,13 @@ class FIRController {
             throw new ApiError_1.ApiError(403, 'User is not an officer');
         }
         const fir = await fir_service_1.FIRService.submitFIR(body.firId, user.officer.id);
+        await summary_service_1.FIRSummaryService.generateSummary(fir.id);
+        try {
+            await fir_notification_service_1.NotificationService.sendFIRNotification(fir.id);
+        }
+        catch (error) {
+            console.error('FIR notification failed:', error);
+        }
         (0, server_shared_1.sendJson)(res, 200, {
             success: true,
             data: fir,
@@ -142,21 +152,56 @@ class FIRController {
         });
     }
     static async uploadVoiceRecording(req, res, body) {
-        const user = await (0, auth_middleware_1.getAuthenticatedUser)(req);
-        const recording = await voiceRecording_service_1.VoiceRecordingService.createVoiceRecording({
+        const user = await (0, auth_middleware_1.getAuthenticatedUser)(req, [enums_1.Role.OFFICER, enums_1.Role.VICTIM]);
+        const audioBuffer = body.audioBuffer;
+        if (!audioBuffer || !Buffer.isBuffer(audioBuffer) || audioBuffer.length === 0) {
+            throw new ApiError_1.ApiError(400, 'Audio file is required.');
+        }
+        const durationRaw = body.durationSecs ?? body.duration;
+        const durationSecs = typeof durationRaw === 'string'
+            ? Number.parseInt(durationRaw, 10)
+            : typeof durationRaw === 'number'
+                ? durationRaw
+                : undefined;
+        const recording = await voiceRecording_service_1.VoiceRecordingService.storeVoiceUpload({
             userId: user.id,
-            firId: body.firId,
-            language: body.language || 'HINDI',
-            fileUrl: body.fileUrl,
-            durationSecs: body.durationSecs,
+            firId: typeof body.firId === 'string' ? body.firId : undefined,
+            languageCode: typeof body.language === 'string' ? body.language : 'hi',
+            durationSecs: Number.isFinite(durationSecs) ? durationSecs : undefined,
+            buffer: audioBuffer,
+            filename: typeof body.audioFilename === 'string' ? body.audioFilename : 'recording.webm',
+            mimeType: typeof body.audioMimeType === 'string' ? body.audioMimeType : 'audio/webm',
         });
-        // Process voice recording asynchronously
-        voiceRecording_service_1.VoiceRecordingService.processVoiceRecording(recording.id).catch(console.error);
         (0, server_shared_1.sendJson)(res, 201, {
             success: true,
             data: recording,
-            message: 'Voice recording uploaded and processing started',
+            message: 'Voice recording uploaded and processed successfully',
         });
+    }
+    static async generateSummary(req, res, body) {
+        await (0, auth_middleware_1.getAuthenticatedUser)(req, [enums_1.Role.OFFICER, enums_1.Role.ADMIN]);
+        const firId = String(body.firId ?? '');
+        if (!firId) {
+            throw new ApiError_1.ApiError(400, 'FIR ID is required.');
+        }
+        const fir = await summary_service_1.FIRSummaryService.generateSummary(firId);
+        (0, server_shared_1.sendJson)(res, 200, {
+            success: true,
+            data: fir,
+            message: 'AI FIR summary generated.',
+        });
+    }
+    static async downloadPDF(req, res, body) {
+        await (0, auth_middleware_1.getAuthenticatedUser)(req, [enums_1.Role.OFFICER, enums_1.Role.ADMIN]);
+        const firId = String(body.firId ?? '');
+        if (!firId) {
+            throw new ApiError_1.ApiError(400, 'FIR ID is required.');
+        }
+        const pdf = await pdf_service_1.FIRPdfService.generateForFir(firId);
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${pdf.filename}"`);
+        res.end(pdf.buffer);
     }
     static async markEvidenceCollected(req, res, body) {
         const user = await (0, auth_middleware_1.getAuthenticatedUser)(req, [enums_1.Role.OFFICER]);

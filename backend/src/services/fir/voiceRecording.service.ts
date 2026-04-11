@@ -2,6 +2,15 @@ import { prisma } from '../../config/database';
 import { ApiError } from '../../utils/ApiError';
 import type { VoiceRecording } from '../../generated/prisma/client';
 import type { Language } from '../../generated/prisma/enums';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { env } from '../../config/env';
+import { remotePipelineAudio } from '../ml/mlClient';
+import { fullPipelineToClassificationPayload } from '../ml/normalize';
+import { persistVictimClassification } from '../victim/complaint.service';
+import { victimLanguageFromCode } from '../victim/statement.service';
+import { FIRSummaryService } from './summary.service';
 
 export interface createVoiceRecordingInput {
   userId: string;
@@ -11,7 +20,83 @@ export interface createVoiceRecordingInput {
   durationSecs?: number;
 }
 
+export interface storeVoiceUploadInput {
+  userId: string;
+  firId?: string;
+  languageCode?: string;
+  durationSecs?: number;
+  buffer: Buffer;
+  filename?: string;
+  mimeType?: string;
+}
+
+const languageToIso = (language: Language) => {
+  switch (language) {
+    case 'HINDI':
+      return 'hi';
+    case 'BHOJPURI':
+      return 'bh';
+    case 'MARATHI':
+      return 'mr';
+    case 'TAMIL':
+      return 'ta';
+    case 'TELUGU':
+      return 'te';
+    case 'BENGALI':
+      return 'bn';
+    case 'GUJARATI':
+      return 'gu';
+    case 'KANNADA':
+      return 'kn';
+    case 'MALAYALAM':
+      return 'ml';
+    case 'PUNJABI':
+      return 'pa';
+    case 'ODIA':
+      return 'or';
+    case 'ENGLISH':
+    default:
+      return 'en';
+  }
+};
+
+const extensionFromMime = (mimeType?: string, filename?: string) => {
+  const lowerMime = (mimeType ?? '').toLowerCase();
+  const fromName = filename?.split('.').pop()?.toLowerCase();
+  if (fromName) return fromName;
+  if (lowerMime.includes('ogg')) return 'ogg';
+  if (lowerMime.includes('wav')) return 'wav';
+  if (lowerMime.includes('mpeg') || lowerMime.includes('mp3')) return 'mp3';
+  if (lowerMime.includes('mp4') || lowerMime.includes('m4a')) return 'm4a';
+  return 'webm';
+};
+
 export class VoiceRecordingService {
+  static async storeVoiceUpload(input: storeVoiceUploadInput) {
+    const language = victimLanguageFromCode((input.languageCode ?? 'hi').toLowerCase());
+    const uploadRoot = path.join(process.cwd(), 'uploads', 'voice');
+    await fs.mkdir(uploadRoot, { recursive: true });
+
+    const ext = extensionFromMime(input.mimeType, input.filename);
+    const relativePath = path
+      .join('uploads', 'voice', `${input.userId}-${randomUUID()}.${ext}`)
+      .split(path.sep)
+      .join('/');
+    const absolutePath = path.join(process.cwd(), relativePath);
+    await fs.writeFile(absolutePath, input.buffer);
+
+    const recording = await this.createVoiceRecording({
+      userId: input.userId,
+      firId: input.firId,
+      language,
+      fileUrl: relativePath,
+      durationSecs: input.durationSecs,
+    });
+
+    const processed = await this.processVoiceRecording(recording.id);
+    return processed;
+  }
+
   static async createVoiceRecording(input: createVoiceRecordingInput): Promise<VoiceRecording> {
     // Validate user exists
     const user = await prisma.user.findUnique({
@@ -127,9 +212,12 @@ export class VoiceRecordingService {
    * Process voice recording through ML service
    * Handles transcription and classification
    */
-  static async processVoiceRecording(recordingId: string): Promise<void> {
+  static async processVoiceRecording(recordingId: string) {
     const recording = await prisma.voiceRecording.findUnique({
       where: { id: recordingId },
+      include: {
+        victimStatement: true,
+      },
     });
 
     if (!recording) {
@@ -137,62 +225,68 @@ export class VoiceRecordingService {
     }
 
     try {
-      // Call transcription service - Replace with actual implementation
-      const transcript = await this.transcribeAudio(recording.fileUrl, recording.language);
+      const absolutePath = path.isAbsolute(recording.fileUrl)
+        ? recording.fileUrl
+        : path.join(process.cwd(), recording.fileUrl);
+      const audioBuffer = await fs.readFile(absolutePath);
+      const isoLanguage = languageToIso(recording.language);
 
-      // Update recording with transcript
-      await this.updateWithTranscript(recordingId, transcript);
+      if (!env.mlServiceUrl) {
+        throw new Error('ML_SERVICE_URL is required for audio transcription.');
+      }
 
-      // Check if victim statement already exists for this recording
-      const existingStatement = await prisma.victimStatement.findFirst({
-        where: { voiceRecordingId: recordingId },
-      });
+      const normalized = await remotePipelineAudio(
+        audioBuffer,
+        path.basename(absolutePath),
+        `audio/${extensionFromMime(undefined, absolutePath)}`,
+        {
+          language: isoLanguage,
+        },
+      );
 
-      // If no victim statement linked, create one from transcript
-      if (!existingStatement) {
-        await prisma.victimStatement.create({
+      const transcript = (normalized.transcript || normalized.rawComplaintText || '').trim();
+      if (!transcript) {
+        throw new Error('Transcript is empty after ML processing.');
+      }
+
+      const updatedRecording = await this.updateWithTranscript(recordingId, transcript);
+
+      const statement = recording.victimStatement
+        ? await prisma.victimStatement.update({
+            where: { id: recording.victimStatement.id },
+            data: {
+              rawText: transcript,
+              language: recording.language,
+              firId: recording.firId,
+            },
+          })
+        : await prisma.victimStatement.create({
+            data: {
+              userId: recording.userId,
+              voiceRecordingId: recordingId,
+              rawText: transcript,
+              language: recording.language,
+              firId: recording.firId,
+            },
+          });
+
+      await persistVictimClassification(statement.id, fullPipelineToClassificationPayload(normalized));
+
+      if (recording.firId) {
+        await prisma.fIR.update({
+          where: { id: recording.firId },
           data: {
-            userId: recording.userId,
-            voiceRecordingId: recordingId,
-            rawText: transcript,
-            language: recording.language,
-            firId: recording.firId,
+            incidentDescription: transcript,
+            urgencyLevel: normalized.urgencyLevel,
           },
         });
+        await FIRSummaryService.generateSummary(recording.firId);
       }
+
+      return updatedRecording;
     } catch (error) {
       console.error('Error processing voice recording:', error);
       throw new ApiError(500, 'Failed to process voice recording');
-    }
-  }
-
-  /**
-   * Call external transcription service
-   * This should be replaced with actual implementation
-   */
-  private static async transcribeAudio(fileUrl: string, language: Language): Promise<string> {
-    try {
-      const response = await fetch(process.env.TRANSCRIPTION_SERVICE_URL || 'http://localhost:5000/transcribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.TRANSCRIPTION_SERVICE_KEY}`,
-        },
-        body: JSON.stringify({
-          fileUrl,
-          language,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Transcription service error: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      return result.transcript;
-    } catch (error) {
-      console.error('Transcription failed:', error);
-      throw error;
     }
   }
 }

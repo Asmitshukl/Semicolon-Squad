@@ -3,6 +3,9 @@ import { FIRService } from '../../services/fir/fir.service';
 import { VoiceRecordingService } from '../../services/fir/voiceRecording.service';
 import { EvidenceChecklistService } from '../../services/fir/evidenceChecklist.service';
 import { AnomalyDetectionService } from '../../services/fir/anomalyDetection.service';
+import { FIRPdfService } from '../../services/fir/pdf.service';
+import { FIRSummaryService } from '../../services/fir/summary.service';
+import { NotificationService } from '../../services/notification/fir.notification.service';
 import { getAuthenticatedUser } from '../../middleware/auth.middleware';
 import { ApiError } from '../../utils/ApiError';
 import { sendJson } from '../../server.shared';
@@ -57,6 +60,12 @@ export class FIRController {
     }
 
     const fir = await FIRService.submitFIR(body.firId, user.officer.id);
+    await FIRSummaryService.generateSummary(fir.id);
+    try {
+      await NotificationService.sendFIRNotification(fir.id);
+    } catch (error) {
+      console.error('FIR notification failed:', error);
+    }
 
     sendJson(res, 200, {
       success: true,
@@ -172,24 +181,65 @@ export class FIRController {
   }
 
   static async uploadVoiceRecording(req: IncomingMessage, res: ServerResponse, body: any) {
-    const user = await getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req, [Role.OFFICER, Role.VICTIM]);
+    const audioBuffer = body.audioBuffer as Buffer | undefined;
 
-    const recording = await VoiceRecordingService.createVoiceRecording({
+    if (!audioBuffer || !Buffer.isBuffer(audioBuffer) || audioBuffer.length === 0) {
+      throw new ApiError(400, 'Audio file is required.');
+    }
+
+    const durationRaw = body.durationSecs ?? body.duration;
+    const durationSecs =
+      typeof durationRaw === 'string'
+        ? Number.parseInt(durationRaw, 10)
+        : typeof durationRaw === 'number'
+          ? durationRaw
+          : undefined;
+
+    const recording = await VoiceRecordingService.storeVoiceUpload({
       userId: user.id,
-      firId: body.firId,
-      language: body.language || 'HINDI',
-      fileUrl: body.fileUrl,
-      durationSecs: body.durationSecs,
+      firId: typeof body.firId === 'string' ? body.firId : undefined,
+      languageCode: typeof body.language === 'string' ? body.language : 'hi',
+      durationSecs: Number.isFinite(durationSecs) ? durationSecs : undefined,
+      buffer: audioBuffer,
+      filename: typeof body.audioFilename === 'string' ? body.audioFilename : 'recording.webm',
+      mimeType: typeof body.audioMimeType === 'string' ? body.audioMimeType : 'audio/webm',
     });
-
-    // Process voice recording asynchronously
-    VoiceRecordingService.processVoiceRecording(recording.id).catch(console.error);
 
     sendJson(res, 201, {
       success: true,
       data: recording,
-      message: 'Voice recording uploaded and processing started',
+      message: 'Voice recording uploaded and processed successfully',
     });
+  }
+
+  static async generateSummary(req: IncomingMessage, res: ServerResponse, body: any) {
+    await getAuthenticatedUser(req, [Role.OFFICER, Role.ADMIN]);
+    const firId = String(body.firId ?? '');
+    if (!firId) {
+      throw new ApiError(400, 'FIR ID is required.');
+    }
+
+    const fir = await FIRSummaryService.generateSummary(firId);
+    sendJson(res, 200, {
+      success: true,
+      data: fir,
+      message: 'AI FIR summary generated.',
+    });
+  }
+
+  static async downloadPDF(req: IncomingMessage, res: ServerResponse, body: any) {
+    await getAuthenticatedUser(req, [Role.OFFICER, Role.ADMIN]);
+    const firId = String(body.firId ?? '');
+    if (!firId) {
+      throw new ApiError(400, 'FIR ID is required.');
+    }
+
+    const pdf = await FIRPdfService.generateForFir(firId);
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${pdf.filename}"`);
+    res.end(pdf.buffer);
   }
 
   static async markEvidenceCollected(req: IncomingMessage, res: ServerResponse, body: any) {

@@ -30,7 +30,10 @@ type BackendVoiceRecording = {
   durationSecs: number | null;
   isVerified: boolean;
   recordedAt: string;
+  transcript: string | null;
+  fileUrl?: string;
   fir: { id: string; firNumber: string | null } | null;
+  victimStatement?: { id: string; rawText: string | null } | null;
 };
 
 type BackendFIR = {
@@ -183,12 +186,14 @@ const mapFir = (fir: BackendFIR): MockFIR => {
 
 const mapVoiceRecording = (recording: BackendVoiceRecording, index: number): VoiceRec => ({
   id: recording.id,
+  firId: recording.fir?.id,
   firNo: recording.fir?.firNumber || 'Unlinked FIR',
   label: voiceLabel(index),
   duration: formatDuration(recording.durationSecs),
   language: recording.language.slice(0, 2),
   verified: recording.isVerified,
   recordedAt: formatDateTime(recording.recordedAt),
+  transcript: recording.transcript || recording.victimStatement?.rawText || undefined,
 });
 
 export const officerService = {
@@ -224,6 +229,40 @@ export const officerService = {
 
   async verifyVoiceRecording(recordingId: string) {
     await api.post(`/officer/voice-recordings/${recordingId}/verify`);
+  },
+
+  async getVoiceRecording(recordingId: string) {
+    const { data } = await api.get<{ success: true; data: BackendVoiceRecording }>(
+      `/officer/voice-recordings/${recordingId}`,
+    );
+    return mapVoiceRecording(data.data, 0);
+  },
+
+  async getVoiceRecordingAudio(recordingId: string) {
+    const response = await api.get(`/officer/voice-recordings/${recordingId}/audio`, {
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+
+  async uploadVoiceRecording(payload: FormData) {
+    const { data } = await api.post<{ success: true; data: BackendVoiceRecording }>(
+      '/officer/voice-recording/upload',
+      payload,
+    );
+    return mapVoiceRecording(data.data, 0);
+  },
+
+  async generateSummary(firId: string) {
+    const { data } = await api.post<{ success: true; data: BackendFIR }>(`/officer/fir/${firId}/summary`);
+    return mapFir(data.data);
+  },
+
+  async downloadFirPdf(firId: string) {
+    const response = await api.get(`/officer/fir/${firId}/pdf`, {
+      responseType: 'blob',
+    });
+    return response.data as Blob;
   },
 
   async getProfile() {

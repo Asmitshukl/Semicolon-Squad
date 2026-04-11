@@ -13,11 +13,15 @@ export const officerRoutes: RouteDefinition[] = [
   { method: 'POST', path: '/api/officer/fir/create', handler: asyncHandler(FIRController.createFIR) },
   { method: 'PUT', path: '/api/officer/fir/update', handler: asyncHandler(FIRController.updateFIR) },
   { method: 'POST', path: '/api/officer/fir/submit', handler: asyncHandler(FIRController.submitFIR) },
+  { method: 'POST', path: '/api/officer/fir/:firId/summary', handler: asyncHandler(FIRController.generateSummary) },
+  { method: 'GET', path: '/api/officer/fir/:firId/pdf', handler: asyncHandler(FIRController.downloadPDF) },
   { method: 'GET', path: '/api/officer/fir/:firId', handler: asyncHandler(FIRController.getFIR) },
   { method: 'GET', path: '/api/officer/firs', handler: asyncHandler(FIRController.getFIRsByStation) },
   
   // Voice Recording
   { method: 'GET', path: '/api/officer/voice-recordings', handler: asyncHandler(OfficerRecordingController.listRecordings) },
+  { method: 'GET', path: '/api/officer/voice-recordings/:recordingId', handler: asyncHandler(OfficerRecordingController.getRecording) },
+  { method: 'GET', path: '/api/officer/voice-recordings/:recordingId/audio', handler: asyncHandler(OfficerRecordingController.streamAudio) },
   { method: 'POST', path: '/api/officer/voice-recordings/:recordingId/verify', handler: asyncHandler(OfficerRecordingController.verifyRecording) },
   { method: 'POST', path: '/api/officer/voice-recording/upload', handler: asyncHandler(FIRController.uploadVoiceRecording) },
 

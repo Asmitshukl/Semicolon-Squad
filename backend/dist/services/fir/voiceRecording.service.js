@@ -1,9 +1,86 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VoiceRecordingService = void 0;
 const database_1 = require("../../config/database");
 const ApiError_1 = require("../../utils/ApiError");
+const promises_1 = __importDefault(require("node:fs/promises"));
+const node_path_1 = __importDefault(require("node:path"));
+const node_crypto_1 = require("node:crypto");
+const env_1 = require("../../config/env");
+const mlClient_1 = require("../ml/mlClient");
+const normalize_1 = require("../ml/normalize");
+const complaint_service_1 = require("../victim/complaint.service");
+const statement_service_1 = require("../victim/statement.service");
+const summary_service_1 = require("./summary.service");
+const languageToIso = (language) => {
+    switch (language) {
+        case 'HINDI':
+            return 'hi';
+        case 'BHOJPURI':
+            return 'bh';
+        case 'MARATHI':
+            return 'mr';
+        case 'TAMIL':
+            return 'ta';
+        case 'TELUGU':
+            return 'te';
+        case 'BENGALI':
+            return 'bn';
+        case 'GUJARATI':
+            return 'gu';
+        case 'KANNADA':
+            return 'kn';
+        case 'MALAYALAM':
+            return 'ml';
+        case 'PUNJABI':
+            return 'pa';
+        case 'ODIA':
+            return 'or';
+        case 'ENGLISH':
+        default:
+            return 'en';
+    }
+};
+const extensionFromMime = (mimeType, filename) => {
+    const lowerMime = (mimeType ?? '').toLowerCase();
+    const fromName = filename?.split('.').pop()?.toLowerCase();
+    if (fromName)
+        return fromName;
+    if (lowerMime.includes('ogg'))
+        return 'ogg';
+    if (lowerMime.includes('wav'))
+        return 'wav';
+    if (lowerMime.includes('mpeg') || lowerMime.includes('mp3'))
+        return 'mp3';
+    if (lowerMime.includes('mp4') || lowerMime.includes('m4a'))
+        return 'm4a';
+    return 'webm';
+};
 class VoiceRecordingService {
+    static async storeVoiceUpload(input) {
+        const language = (0, statement_service_1.victimLanguageFromCode)((input.languageCode ?? 'hi').toLowerCase());
+        const uploadRoot = node_path_1.default.join(process.cwd(), 'uploads', 'voice');
+        await promises_1.default.mkdir(uploadRoot, { recursive: true });
+        const ext = extensionFromMime(input.mimeType, input.filename);
+        const relativePath = node_path_1.default
+            .join('uploads', 'voice', `${input.userId}-${(0, node_crypto_1.randomUUID)()}.${ext}`)
+            .split(node_path_1.default.sep)
+            .join('/');
+        const absolutePath = node_path_1.default.join(process.cwd(), relativePath);
+        await promises_1.default.writeFile(absolutePath, input.buffer);
+        const recording = await this.createVoiceRecording({
+            userId: input.userId,
+            firId: input.firId,
+            language,
+            fileUrl: relativePath,
+            durationSecs: input.durationSecs,
+        });
+        const processed = await this.processVoiceRecording(recording.id);
+        return processed;
+    }
     static async createVoiceRecording(input) {
         // Validate user exists
         const user = await database_1.prisma.user.findUnique({
@@ -110,22 +187,40 @@ class VoiceRecordingService {
     static async processVoiceRecording(recordingId) {
         const recording = await database_1.prisma.voiceRecording.findUnique({
             where: { id: recordingId },
+            include: {
+                victimStatement: true,
+            },
         });
         if (!recording) {
             throw new ApiError_1.ApiError(404, 'Voice recording not found');
         }
         try {
-            // Call transcription service - Replace with actual implementation
-            const transcript = await this.transcribeAudio(recording.fileUrl, recording.language);
-            // Update recording with transcript
-            await this.updateWithTranscript(recordingId, transcript);
-            // Check if victim statement already exists for this recording
-            const existingStatement = await database_1.prisma.victimStatement.findFirst({
-                where: { voiceRecordingId: recordingId },
+            const absolutePath = node_path_1.default.isAbsolute(recording.fileUrl)
+                ? recording.fileUrl
+                : node_path_1.default.join(process.cwd(), recording.fileUrl);
+            const audioBuffer = await promises_1.default.readFile(absolutePath);
+            const isoLanguage = languageToIso(recording.language);
+            if (!env_1.env.mlServiceUrl) {
+                throw new Error('ML_SERVICE_URL is required for audio transcription.');
+            }
+            const normalized = await (0, mlClient_1.remotePipelineAudio)(audioBuffer, node_path_1.default.basename(absolutePath), `audio/${extensionFromMime(undefined, absolutePath)}`, {
+                language: isoLanguage,
             });
-            // If no victim statement linked, create one from transcript
-            if (!existingStatement) {
-                await database_1.prisma.victimStatement.create({
+            const transcript = (normalized.transcript || normalized.rawComplaintText || '').trim();
+            if (!transcript) {
+                throw new Error('Transcript is empty after ML processing.');
+            }
+            const updatedRecording = await this.updateWithTranscript(recordingId, transcript);
+            const statement = recording.victimStatement
+                ? await database_1.prisma.victimStatement.update({
+                    where: { id: recording.victimStatement.id },
+                    data: {
+                        rawText: transcript,
+                        language: recording.language,
+                        firId: recording.firId,
+                    },
+                })
+                : await database_1.prisma.victimStatement.create({
                     data: {
                         userId: recording.userId,
                         voiceRecordingId: recordingId,
@@ -134,39 +229,22 @@ class VoiceRecordingService {
                         firId: recording.firId,
                     },
                 });
+            await (0, complaint_service_1.persistVictimClassification)(statement.id, (0, normalize_1.fullPipelineToClassificationPayload)(normalized));
+            if (recording.firId) {
+                await database_1.prisma.fIR.update({
+                    where: { id: recording.firId },
+                    data: {
+                        incidentDescription: transcript,
+                        urgencyLevel: normalized.urgencyLevel,
+                    },
+                });
+                await summary_service_1.FIRSummaryService.generateSummary(recording.firId);
             }
+            return updatedRecording;
         }
         catch (error) {
             console.error('Error processing voice recording:', error);
             throw new ApiError_1.ApiError(500, 'Failed to process voice recording');
-        }
-    }
-    /**
-     * Call external transcription service
-     * This should be replaced with actual implementation
-     */
-    static async transcribeAudio(fileUrl, language) {
-        try {
-            const response = await fetch(process.env.TRANSCRIPTION_SERVICE_URL || 'http://localhost:5000/transcribe', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${process.env.TRANSCRIPTION_SERVICE_KEY}`,
-                },
-                body: JSON.stringify({
-                    fileUrl,
-                    language,
-                }),
-            });
-            if (!response.ok) {
-                throw new Error(`Transcription service error: ${response.statusText}`);
-            }
-            const result = await response.json();
-            return result.transcript;
-        }
-        catch (error) {
-            console.error('Transcription failed:', error);
-            throw error;
         }
     }
 }

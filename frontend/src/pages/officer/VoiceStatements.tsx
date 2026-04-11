@@ -1,10 +1,12 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { VoiceRecorder } from '../../components/officer/VoiceRecorder';
 import { officerService } from '../../services/officerService';
 import type { VoiceRec } from '../../data/officerMock';
 
 export const VoiceStatements = () => {
   const [rows, setRows] = useState<VoiceRec[]>([]);
+  const [audioUrls, setAudioUrls] = useState<Record<string, string>>({});
+  const audioUrlsRef = useRef<Record<string, string>>({});
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [firFilter, setFirFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'verified' | 'unverified'>('ALL');
@@ -34,6 +36,17 @@ export const VoiceStatements = () => {
     };
   }, []);
 
+  useEffect(() => {
+    audioUrlsRef.current = audioUrls;
+  }, [audioUrls]);
+
+  useEffect(
+    () => () => {
+      Object.values(audioUrlsRef.current).forEach((url) => window.URL.revokeObjectURL(url));
+    },
+    [],
+  );
+
   const filtered = useMemo(
     () =>
       rows.filter((r) => {
@@ -51,6 +64,13 @@ export const VoiceStatements = () => {
     setConfirmId(null);
   };
 
+  const loadAudio = async (id: string) => {
+    if (audioUrls[id]) return;
+    const blob = await officerService.getVoiceRecordingAudio(id);
+    const url = window.URL.createObjectURL(blob);
+    setAudioUrls((prev) => ({ ...prev, [id]: url }));
+  };
+
   return (
     <div>
       <h1 className="text-3xl font-extrabold tracking-tight text-white">Voice Statements</h1>
@@ -58,7 +78,11 @@ export const VoiceStatements = () => {
         — आवाज़ बयान · Record and verify victim statements
       </p>
 
-      <VoiceRecorder />
+      <VoiceRecorder
+        onUploaded={(recording) => {
+          setRows((prev) => [recording, ...prev.filter((item) => item.id !== recording.id)]);
+        }}
+      />
 
       <div className="flex flex-wrap gap-4 mb-6 mt-10">
         <input
@@ -108,9 +132,19 @@ export const VoiceStatements = () => {
                       {r.verified ? 'Verified' : 'Unverified'}
                     </td>
                     <td className="px-4 py-3 space-x-3">
-                      <button type="button" className="text-xs font-bold text-[#F97316] hover:underline">
-                        Play
-                      </button>
+                      {audioUrls[r.id] ? (
+                        <audio controls preload="none" className="h-8 align-middle">
+                          <source src={audioUrls[r.id]} />
+                        </audio>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void loadAudio(r.id)}
+                          className="text-xs font-bold text-[#F97316] hover:underline"
+                        >
+                          Load Audio
+                        </button>
+                      )}
                       {!r.verified && (
                         <button
                           type="button"
@@ -125,6 +159,14 @@ export const VoiceStatements = () => {
                   {confirmId === r.id && (
                     <tr className="bg-white/[0.02]">
                       <td colSpan={6} className="px-4 py-4">
+                        {r.transcript ? (
+                          <div className="mb-4 rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-3">
+                            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#6B7280]">
+                              Transcript
+                            </p>
+                            <p className="text-sm leading-6 text-[#D1D5DB]">{r.transcript}</p>
+                          </div>
+                        ) : null}
                         <p className="text-sm text-[#D1D5DB] mb-3">Mark this recording as verified?</p>
                         <div className="flex gap-3">
                           <button

@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, Download, Loader2 } from 'lucide-react';
 import type { MockFIR } from '../../data/officerMock';
+import { officerService } from '../../services/officerService';
 
 type Phase = 'idle' | 'loading' | 'done';
 
 export const DocumentGenerator = ({ fir }: { fir: MockFIR }) => {
   const [phase, setPhase] = useState<Phase>('idle');
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const items = [
     { ok: true, label: 'Victim statement received' },
@@ -15,67 +18,69 @@ export const DocumentGenerator = ({ fir }: { fir: MockFIR }) => {
     { ok: true, label: 'Officer identity confirmed' },
   ];
 
+  const generate = async () => {
+    setPhase('loading');
+    setError(null);
+    setMessage(null);
+    try {
+      await officerService.generateSummary(fir.id);
+      const blob = await officerService.downloadFirPdf(fir.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${fir.firNo.replace(/[^\w.-]+/g, '_')}.pdf`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      setPhase('done');
+      setMessage('PDF downloaded and FIR summary refreshed.');
+    } catch (err) {
+      setPhase('idle');
+      setError(err instanceof Error ? err.message : 'Document generation failed.');
+    }
+  };
+
   return (
     <div>
-      <p className="text-[11px] font-bold tracking-[0.2em] text-[#6B7280] uppercase mb-4">— दस्तावेज़ · GENERATE OFFICIAL DOCUMENT</p>
-      <div className="space-y-2 mb-8">
-        {items.map((it) => (
-          <div key={it.label} className="flex items-center gap-2 text-sm">
-            {it.ok ? (
-              <Check className="w-4 h-4 text-[#16A34A] shrink-0" strokeWidth={3} />
+      <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.2em] text-[#6B7280]">
+        Generate Official Document
+      </p>
+      <div className="mb-8 space-y-2">
+        {items.map((item) => (
+          <div key={item.label} className="flex items-center gap-2 text-sm">
+            {item.ok ? (
+              <Check className="h-4 w-4 shrink-0 text-[#16A34A]" strokeWidth={3} />
             ) : (
-              <span className="text-[#D97706] font-bold w-4 text-center">✗</span>
+              <span className="w-4 text-center font-bold text-[#D97706]">x</span>
             )}
-            <span className={it.warn ? 'text-[#D97706]' : 'text-[#D1D5DB]'}>{it.label}</span>
+            <span className={item.warn ? 'text-[#D97706]' : 'text-[#D1D5DB]'}>{item.label}</span>
           </div>
         ))}
       </div>
 
-      <div className="rounded-xl border border-white/[0.08] bg-[rgba(255,255,255,0.04)] p-4 mb-6 space-y-2 text-sm">
-        <p className="text-[11px] font-bold tracking-wide text-[#6B7280] uppercase">Digitally signing as:</p>
-        <p>
-          <span className="text-[#6B7280]">Name:</span>{' '}
-          <span className="font-mono text-white">SI Rajesh Kumar Singh</span>
-        </p>
-        <p>
-          <span className="text-[#6B7280]">Badge:</span> <span className="font-mono text-white">DL-SI-4821</span>
-        </p>
-        <p>
-          <span className="text-[#6B7280]">Station:</span>{' '}
-          <span className="text-white">Connaught Place PS, Central Delhi</span>
-        </p>
-        <p>
-          <span className="text-[#6B7280]">Timestamp:</span>{' '}
-          <span className="font-mono text-[#9CA3AF]">Auto-filled on generation</span>
-        </p>
+      <div className="mb-6 space-y-2 rounded-xl border border-white/[0.08] bg-[rgba(255,255,255,0.04)] p-4 text-sm">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-[#6B7280]">Digital signing context</p>
+        <p className="text-white">FIR: {fir.firNo}</p>
+        <p className="text-white">Primary BNS: {fir.bnsCode} - {fir.bnsTitle}</p>
+        <p className="font-mono text-[#9CA3AF]">Timestamp auto-filled during PDF generation</p>
       </div>
 
-      {phase === 'idle' && (
+      {error ? <p className="mb-3 text-sm text-[#FCA5A5]">{error}</p> : null}
+      {message ? <p className="mb-3 text-sm text-[#86EFAC]">{message}</p> : null}
+
+      {phase === 'loading' ? (
+        <div className="flex items-center justify-center gap-2 py-4 text-[#9CA3AF]">
+          <Loader2 className="h-5 w-5 animate-spin text-[#F97316]" />
+          <span className="font-mono text-sm">Generating PDF...</span>
+        </div>
+      ) : (
         <button
           type="button"
-          onClick={() => {
-            setPhase('loading');
-            window.setTimeout(() => setPhase('done'), 1600);
-          }}
-          className="w-full py-4 rounded-xl bg-[#F97316] text-white text-sm font-extrabold tracking-wide uppercase hover:bg-[#ea580c]"
+          onClick={() => void generate()}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#F97316] py-4 text-sm font-extrabold uppercase tracking-wide text-white hover:bg-[#ea580c]"
         >
-          Generate & Sign FIR Document →
+          <Download className="h-4 w-4" />
+          {phase === 'done' ? 'Download Again' : 'Generate & Download PDF'}
         </button>
-      )}
-      {phase === 'loading' && (
-        <div className="flex items-center justify-center gap-2 py-4 text-[#9CA3AF]">
-          <Loader2 className="w-5 h-5 animate-spin text-[#F97316]" />
-          <span className="font-mono text-sm">Generating...</span>
-        </div>
-      )}
-      {phase === 'done' && (
-        <div className="space-y-3">
-          <p className="text-sm font-bold text-[#16A34A]">✓ Document Generated · Download PDF</p>
-          <p className="text-xs text-[#6B7280] flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-sm bg-[#16A34A]" />
-            SMS sent to victim with FIR number
-          </p>
-        </div>
       )}
     </div>
   );
