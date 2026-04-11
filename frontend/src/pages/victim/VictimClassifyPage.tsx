@@ -31,6 +31,25 @@ export const VictimClassifyPage = () => {
                 Confidence: {Math.round(classification.confidenceScore * 100)}% | Urgency: {classification.urgencyLevel}
               </p>
               <p style={{ color: '#93c5fd' }}>{classification.urgencyReason}</p>
+              {Array.isArray(classification.alternativeSections) &&
+                classification.alternativeSections.length > 0 && (
+                  <div style={{ marginTop: 16 }}>
+                    <h4 style={{ margin: '0 0 8px', color: '#e2e8f0' }}>Other possible BNS sections (multi-label)</h4>
+                    <ul style={{ color: '#94a3b8', paddingLeft: 18, margin: 0 }}>
+                      {classification.alternativeSections.map(
+                        (alt: { sectionNumber?: string; title?: string; confidence?: number }, idx: number) => (
+                          <li key={`${alt.sectionNumber ?? idx}`} style={{ marginBottom: 6 }}>
+                            {alt.sectionNumber}
+                            {alt.title ? ` — ${alt.title}` : ''}
+                            {typeof alt.confidence === 'number'
+                              ? ` (${Math.round(alt.confidence * 100)}% conf.)`
+                              : ''}
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
+                )}
             </section>
 
             {resolution && (
