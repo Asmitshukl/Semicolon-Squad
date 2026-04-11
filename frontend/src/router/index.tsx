@@ -11,7 +11,7 @@ const OfficerRegister = lazy(() => import('../features/shared/auth/OfficerRegist
 const LandingHome           = lazy(() => import('../pages/victim/LandingHome').then(m => ({ default: m.LandingHome })));
 const VictimStatementPage   = lazy(() => import('../pages/victim/VictimStatementPage').then(m => ({ default: m.VictimStatementPage })));
 const VictimClassifyPage    = lazy(() => import('../pages/victim/VictimClassifyPage').then(m => ({ default: m.VictimClassifyPage })));
-
+const VictimStationPage     = lazy(() => import('../pages/victim/VictimStationPage').then(m => ({ default: m.VictimStationPage })));
 const VictimTrackerPage     = lazy(() => import('../pages/victim/VictimTrackerPage').then(m => ({ default: m.VictimTrackerPage })));
 const VictimRightsPage      = lazy(() => import('../pages/victim/VictimRightsPage').then(m => ({ default: m.VictimRightsPage })));
 const VictimProfilePage     = lazy(() => import('../pages/victim/VictimProfilePage').then(m => ({ default: m.VictimProfilePage })));
@@ -57,13 +57,18 @@ const router = createBrowserRouter([
     element: <Suspense fallback={<PageLoader />}><OfficerRegister /></Suspense>,
   },
 
-  /* ── Victim portal (TEMPORARILY PUBLIC for UI testing) ─────── */
-  { path: '/victim',           element: <Suspense fallback={<PageLoader />}><LandingHome /></Suspense> },
-  { path: '/victim/statement', element: <Suspense fallback={<PageLoader />}><VictimStatementPage /></Suspense> },
-  { path: '/victim/classify',  element: <Suspense fallback={<PageLoader />}><VictimClassifyPage /></Suspense> },
-  { path: '/victim/rights',    element: <Suspense fallback={<PageLoader />}><VictimRightsPage /></Suspense> },
-  { path: '/victim/tracker',   element: <Suspense fallback={<PageLoader />}><VictimTrackerPage /></Suspense> },
-  { path: '/victim/profile',   element: <Suspense fallback={<PageLoader />}><VictimProfilePage /></Suspense> },
+  {
+    element: <PrivateRoute allowedRoles={['victim']} />,
+    children: [
+      { path: '/victim',           element: <Suspense fallback={<PageLoader />}><LandingHome /></Suspense> },
+      { path: '/victim/statement', element: <Suspense fallback={<PageLoader />}><VictimStatementPage /></Suspense> },
+      { path: '/victim/classify',  element: <Suspense fallback={<PageLoader />}><VictimClassifyPage /></Suspense> },
+      { path: '/victim/rights',    element: <Suspense fallback={<PageLoader />}><VictimRightsPage /></Suspense> },
+      { path: '/victim/station',   element: <Suspense fallback={<PageLoader />}><VictimStationPage /></Suspense> },
+      { path: '/victim/tracker',   element: <Suspense fallback={<PageLoader />}><VictimTrackerPage /></Suspense> },
+      { path: '/victim/profile',   element: <Suspense fallback={<PageLoader />}><VictimProfilePage /></Suspense> },
+    ],
+  },
 
   /* ── Officer portal (role-gated) ─────────────────────────────── */
   {
@@ -96,7 +101,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/',
-    element: <Navigate to="/victim" replace />,
+    element: <Navigate to="/login" replace />,
   },
   {
     path: '*',
