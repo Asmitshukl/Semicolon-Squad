@@ -4,6 +4,7 @@ import {
   FileText, Mic, Scale, ArrowRight, ChevronRight,
   CheckCircle2, Search, Globe, Menu, X, Sun, Moon, Bell
 } from 'lucide-react';
+import { WatermarkBackground } from '../../components/ui/WatermarkBackground';
 import { useAuthStore } from '../../store/authStore';
 import { authService } from '../../services/authService';
 
@@ -143,11 +144,11 @@ const FacebookIcon = ({ size = 24, style, fill, ...props }: any) => (
 
 /* ── Shared style tokens based on Light/Dark Mode ──────────────── */
 const getT = (isDark: boolean) => ({
-  accent:    '#F97316',
-  muted:     isDark ? '#6B7280' : '#64748B',
-  ultraMuted:isDark ? '#4B5563' : '#94A3B8',
+  accent:    '#FF9933',
+  muted:     isDark ? '#5a7090' : '#64748B',
+  ultraMuted:isDark ? '#3a5070' : '#94A3B8',
   white:     isDark ? '#ffffff' : '#020617', // Main text (black in light mode)
-  offWhite:  isDark ? '#d1d5db' : '#334155', // Secondary text
+  offWhite:  isDark ? '#e8d8c0' : '#334155', // Secondary text
   bg:        isDark ? '#0f0f0f' : '#f8fafc',
   // Replaced pure black with the shades from the login page:
   cardBg:    isDark ? 'linear-gradient(160deg, #080808 0%, #0d0d0d 60%, #111111 100%)' : '#ffffff',
@@ -156,8 +157,8 @@ const getT = (isDark: boolean) => ({
   divider:   isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)',
   rowHover:  isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
   iconBg:    isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-  label:     { fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', color: isDark ? '#4B5563' : '#64748B', textTransform: 'uppercase' as const },
-  sectionHd: { fontSize: 18, fontWeight: 700, color: isDark ? '#fff' : '#0f172a' },
+  label:     { fontSize: 10, fontWeight: 800, letterSpacing: '0.25em', color: isDark ? '#5a7090' : '#64748B', textTransform: 'uppercase' as const },
+  sectionHd: { fontSize: 18, fontWeight: 800, color: isDark ? '#fff' : '#0f172a' },
 });
 
 /* ══════════════════════════════════════════════════════════════════
@@ -191,13 +192,7 @@ export const LandingHome = () => {
     <div style={{ background: T.bg, minHeight: '100vh', color: T.white, fontFamily: 'Inter, system-ui, sans-serif', transition: 'background 0.3s ease, color 0.3s ease', position: 'relative', overflowX: 'hidden' }}>
 
       {/* ══ BACKGROUND WATERMARK ═════════════════════════════════ */}
-      <div style={{
-        position: 'fixed', bottom: '-15%', right: '-5%',
-        opacity: isDark ? 0.02 : 0.04, pointerEvents: 'none', zIndex: 0,
-        transform: 'rotate(-5deg)',
-      }}>
-        <Scale size={800} color={isDark ? '#FFF' : '#000'} strokeWidth={1} />
-      </div>
+      <WatermarkBackground isDark={isDark} />
 
       {/* Everything else gets relative positioning so it sits above the watermark */}
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -275,17 +270,6 @@ export const LandingHome = () => {
               {isDark ? <Sun size={17} /> : <Moon size={17} />}
             </button>
 
-            {/* Language pill */}
-            <button style={{
-              fontSize: 12, fontWeight: 600, color: T.muted,
-              padding: '4px 10px', borderRadius: 99,
-              border: `1px solid ${T.divider}`,
-              background: 'transparent', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 4,
-            }}>
-              <Globe size={13} /> EN
-            </button>
-
             {/* Avatar / logout */}
             <button
               onClick={handleLogout}
@@ -338,16 +322,19 @@ export const LandingHome = () => {
         ─────────────────────────────────────────────────────── */}
         <section style={{ paddingTop: 60, paddingBottom: 52 }}>
           {/* Micro-label */}
-          <div style={T.label}>स्वागत है &nbsp;·&nbsp; VICTIM PORTAL</div>
+          <div style={{...T.label, color: '#FF9933', display: 'flex', alignItems: 'center', gap: 8}}>
+            <span style={{ width: 24, height: 1, background: '#FF9933' }}></span>
+            स्वागत है &nbsp;·&nbsp; WELCOME BACK
+          </div>
 
           {/* Main greeting */}
           <h1 style={{
             marginTop: 14, marginBottom: 0,
-            fontSize: 'clamp(28px, 4vw, 40px)',
-            fontWeight: 800, letterSpacing: '-0.03em',
+            fontSize: 'clamp(32px, 4.5vw, 48px)',
+            fontWeight: 800, letterSpacing: '-0.02em',
             color: T.white, lineHeight: 1.1,
           }}>
-            {getGreeting()}, {firstName}.
+            {getGreeting()},<br />{firstName}.
           </h1>
 
           {/* Subtitle */}
@@ -435,8 +422,8 @@ export const LandingHome = () => {
         ─────────────────────────────────────────────────────── */}
         <section style={{ paddingBottom: 56 }}>
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={T.label}>विभाग</div>
-            <div style={{ ...T.sectionHd, marginTop: 4, fontSize: 24 }}>Explore the Department</div>
+            <div style={T.label}>भारतीय पुलिस</div>
+            <div style={{ ...T.sectionHd, marginTop: 4, fontSize: 24 }}>The Indian Police</div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -455,13 +442,6 @@ export const LandingHome = () => {
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}
                 >
                   <img src={c.img} alt={c.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <div style={{
-                    position: 'absolute', bottom: 0, left: 0, right: 0,
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%)',
-                    padding: '40px 20px 16px', display: 'flex', justifyContent: 'center'
-                  }}>
-                    <span style={{ color: '#fff', fontSize: 16, fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{c.title}</span>
-                  </div>
                 </div>
               ))}
             </div>
@@ -480,13 +460,6 @@ export const LandingHome = () => {
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}
                 >
                    <img src={c.img} alt={c.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                   <div style={{
-                    position: 'absolute', bottom: 0, left: 0, right: 0,
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)',
-                    padding: '40px 20px 20px', display: 'flex', justifyContent: 'center'
-                  }}>
-                    <span style={{ color: '#fff', fontSize: 18, fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{c.title}</span>
-                  </div>
                 </div>
               ))}
             </div>
@@ -512,6 +485,13 @@ export const LandingHome = () => {
               }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)' }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
+                <img
+                  src="/images/flag.png"
+                  alt="Official portal — national emblem imagery"
+                  width={400}
+                  height={120}
+                  style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block', flexShrink: 0 }}
+                />
                 <div style={{ padding: 20, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                   <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(249,115,22,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
                     <Globe size={32} style={{ color: T.accent }} />
@@ -533,6 +513,13 @@ export const LandingHome = () => {
               }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)' }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
+                <img
+                  src="/images/heroes.png"
+                  alt="Police force and public service"
+                  width={400}
+                  height={120}
+                  style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block', flexShrink: 0 }}
+                />
                 <div style={{ padding: 24, flex: 1, display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
                     <TwitterIcon size={24} style={{ color: T.white }} />
@@ -564,6 +551,13 @@ export const LandingHome = () => {
               }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)' }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
+                <img
+                  src="/images/community.png"
+                  alt="Community and police outreach"
+                  width={400}
+                  height={120}
+                  style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block', flexShrink: 0 }}
+                />
                 <div style={{ padding: 20, display: 'flex', justifyContent: 'center' }}>
                   <InstagramIcon size={24} style={{ color: T.white }} />
                 </div>
@@ -592,6 +586,13 @@ export const LandingHome = () => {
               }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.1)' }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}>
+                <img
+                  src="/images/vehicle.png"
+                  alt="Police vehicles and dedicated service"
+                  width={400}
+                  height={120}
+                  style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block', flexShrink: 0 }}
+                />
                 <div style={{ padding: '16px 20px', borderBottom: T.divider, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

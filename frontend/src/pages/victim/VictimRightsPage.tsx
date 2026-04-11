@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   FileText, Mic, Scale, ArrowRight, ChevronRight,
-  CheckCircle2, Search, Globe, Menu, X, Sun, Moon, Bell
+  CheckCircle2, Search, Menu, X, Sun, Moon, Bell
 } from 'lucide-react';
+import { WatermarkBackground } from '../../components/ui/WatermarkBackground';
 import { useAuthStore } from '../../store/authStore';
 import { authService } from '../../services/authService';
 
@@ -143,11 +144,11 @@ const FacebookIcon = ({ size = 24, style, fill, ...props }: any) => (
 
 /* ── Shared style tokens based on Light/Dark Mode ──────────────── */
 const getT = (isDark: boolean) => ({
-  accent:    '#F97316',
-  muted:     isDark ? '#6B7280' : '#64748B',
-  ultraMuted:isDark ? '#4B5563' : '#94A3B8',
+  accent:    '#FF9933',
+  muted:     isDark ? '#5a7090' : '#64748B',
+  ultraMuted:isDark ? '#3a5070' : '#94A3B8',
   white:     isDark ? '#ffffff' : '#020617', // Main text (black in light mode)
-  offWhite:  isDark ? '#d1d5db' : '#334155', // Secondary text
+  offWhite:  isDark ? '#e8d8c0' : '#334155', // Secondary text
   bg:        isDark ? '#0f0f0f' : '#f8fafc',
   // Replaced pure black with the shades from the login page:
   cardBg:    isDark ? 'linear-gradient(160deg, #080808 0%, #0d0d0d 60%, #111111 100%)' : '#ffffff',
@@ -156,8 +157,8 @@ const getT = (isDark: boolean) => ({
   divider:   isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)',
   rowHover:  isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
   iconBg:    isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-  label:     { fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', color: isDark ? '#4B5563' : '#64748B', textTransform: 'uppercase' as const },
-  sectionHd: { fontSize: 18, fontWeight: 700, color: isDark ? '#fff' : '#0f172a' },
+  label:     { fontSize: 10, fontWeight: 800, letterSpacing: '0.25em', color: isDark ? '#5a7090' : '#64748B', textTransform: 'uppercase' as const },
+  sectionHd: { fontSize: 18, fontWeight: 800, color: isDark ? '#fff' : '#0f172a' },
 });
 
 /* ══════════════════════════════════════════════════════════════════
@@ -191,13 +192,7 @@ export const VictimRightsPage = () => {
     <div style={{ background: T.bg, minHeight: '100vh', color: T.white, fontFamily: 'Inter, system-ui, sans-serif', transition: 'background 0.3s ease, color 0.3s ease', position: 'relative', overflowX: 'hidden' }}>
 
       {/* ══ BACKGROUND WATERMARK ═════════════════════════════════ */}
-      <div style={{
-        position: 'fixed', bottom: '-15%', right: '-5%',
-        opacity: isDark ? 0.02 : 0.04, pointerEvents: 'none', zIndex: 0,
-        transform: 'rotate(-5deg)',
-      }}>
-        <Scale size={800} color={isDark ? '#FFF' : '#000'} strokeWidth={1} />
-      </div>
+      <WatermarkBackground isDark={isDark} />
 
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         
@@ -272,17 +267,6 @@ export const VictimRightsPage = () => {
               title="Toggle Theme"
             >
               {isDark ? <Sun size={17} /> : <Moon size={17} />}
-            </button>
-
-            {/* Language pill */}
-            <button style={{
-              fontSize: 12, fontWeight: 600, color: T.muted,
-              padding: '4px 10px', borderRadius: 99,
-              border: `1px solid ${T.divider}`,
-              background: 'transparent', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 4,
-            }}>
-              <Globe size={13} /> EN
             </button>
 
             {/* Avatar / logout */}
