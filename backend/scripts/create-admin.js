@@ -19,10 +19,17 @@ const readArg = (name) => {
   return match ? match.slice(name.length + 3) : '';
 };
 
-const name = readArg('name');
-const email = readArg('email').toLowerCase();
-const phone = readArg('phone');
-const password = readArg('password');
+const fallbackAdmin = {
+  name: process.env.DEFAULT_ADMIN_NAME || 'Admin User',
+  email: (process.env.DEFAULT_ADMIN_EMAIL || 'admin@example.com').toLowerCase(),
+  phone: process.env.DEFAULT_ADMIN_PHONE || '9876543210',
+  password: process.env.DEFAULT_ADMIN_PASSWORD || 'StrongPass123',
+};
+
+const name = readArg('name') || fallbackAdmin.name;
+const email = (readArg('email') || fallbackAdmin.email).toLowerCase();
+const phone = readArg('phone') || fallbackAdmin.phone;
+const password = readArg('password') || fallbackAdmin.password;
 
 if (!name || !email || !phone || !password) {
   console.error(
@@ -106,6 +113,7 @@ async function main() {
         .catch(normalizeDatabaseError);
 
   console.log(`Admin ready: ${admin.email} (${admin.id})`);
+  console.log('Admin credentials are active and can be used for login.');
 }
 
 main()

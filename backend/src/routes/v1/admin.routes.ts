@@ -6,6 +6,7 @@ import {
 import {
   adminOfficerListController,
   adminOfficerReviewController,
+  adminCreateOfficerController,
 } from '../../controllers/admin/officer.controller';
 import {
   adminStationCreateController,
@@ -21,6 +22,7 @@ export const adminRoutes: RouteDefinition[] = [
   // Officer Management
   { method: 'GET', path: '/api/admin/officers', handler: adminOfficerListController },
   { method: 'POST', path: '/api/admin/officers/review', handler: adminOfficerReviewController },
+  { method: 'POST', path: '/api/admin/officers/create', handler: adminCreateOfficerController },
   
   // Officer Verification
   { method: 'POST', path: '/api/admin/officer/register', handler: asyncHandler(AdminOfficerVerificationController.registerOfficer) },

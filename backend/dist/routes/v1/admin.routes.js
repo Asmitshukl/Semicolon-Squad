@@ -12,6 +12,7 @@ exports.adminRoutes = [
     // Officer Management
     { method: 'GET', path: '/api/admin/officers', handler: officer_controller_1.adminOfficerListController },
     { method: 'POST', path: '/api/admin/officers/review', handler: officer_controller_1.adminOfficerReviewController },
+    { method: 'POST', path: '/api/admin/officers/create', handler: officer_controller_1.adminCreateOfficerController },
     // Officer Verification
     { method: 'POST', path: '/api/admin/officer/register', handler: (0, asyncHandler_1.asyncHandler)(officerVerification_controller_1.AdminOfficerVerificationController.registerOfficer) },
     { method: 'POST', path: '/api/admin/officer/send-otp', handler: (0, asyncHandler_1.asyncHandler)(officerVerification_controller_1.AdminOfficerVerificationController.sendOTPToStation) },

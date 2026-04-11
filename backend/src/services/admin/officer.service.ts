@@ -1,6 +1,8 @@
 import { OfficerVerificationStatus, Role } from '../../generated/prisma/enums';
 import { prisma } from '../../config/database';
 import { ApiError } from '../../utils/ApiError';
+import { hashPassword } from '../../utils/hash';
+import { ensureUniqueIdentity } from '../auth/shared.auth.service';
 
 export const listAdminOfficers = async (status?: string) => {
   const normalizedStatus = status?.toUpperCase();
@@ -47,6 +49,92 @@ export const listAdminOfficers = async (status?: string) => {
       state: officer.station.state,
     },
   }));
+};
+
+/**
+ * Create a new officer account from the admin dashboard.
+ * The officer is immediately VERIFIED and active — no approval queue needed.
+ */
+export const adminCreateOfficer = async (
+  input: {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    badgeNumber: string;
+    stationCode: string;
+    rank?: string;
+  },
+  adminId: string,
+) => {
+  await ensureUniqueIdentity(input.email, input.phone);
+
+  const existingOfficer = await prisma.officer.findUnique({
+    where: { badgeNumber: input.badgeNumber.trim().toUpperCase() },
+  });
+  if (existingOfficer) {
+    throw new ApiError(409, 'An officer with this badge number already exists.');
+  }
+
+  const station = await prisma.policeStation.findUnique({
+    where: { stationCode: input.stationCode.trim().toUpperCase() },
+  });
+  if (!station) {
+    throw new ApiError(404, 'Police station not found for this station code.');
+  }
+
+  const user = await prisma.user.create({
+    data: {
+      name: input.name.trim(),
+      email: input.email.trim().toLowerCase(),
+      phone: input.phone.trim(),
+      passwordHash: hashPassword(input.password),
+      role: Role.OFFICER,
+      isActive: true,
+      officer: {
+        create: {
+          badgeNumber: input.badgeNumber.trim().toUpperCase(),
+          stationId: station.id,
+          rank: input.rank?.trim() || 'Officer',
+          department: station.district,
+          verificationStatus: OfficerVerificationStatus.VERIFIED,
+          verifiedAt: new Date(),
+          verifiedByAdminId: adminId,
+        },
+      },
+    },
+    include: {
+      officer: {
+        include: { station: true },
+      },
+    },
+  });
+
+  const officer = user.officer!;
+  return {
+    id: officer.id,
+    badgeNumber: officer.badgeNumber,
+    rank: officer.rank,
+    department: officer.department,
+    verificationStatus: officer.verificationStatus,
+    verifiedAt: officer.verifiedAt,
+    createdAt: officer.createdAt,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      isActive: user.isActive,
+      role: user.role.toLowerCase(),
+    },
+    station: {
+      id: officer.station.id,
+      name: officer.station.name,
+      stationCode: officer.station.stationCode,
+      district: officer.station.district,
+      state: officer.station.state,
+    },
+  };
 };
 
 export const reviewOfficerRegistration = async (

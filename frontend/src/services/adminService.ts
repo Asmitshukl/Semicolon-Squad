@@ -1,5 +1,5 @@
 import api from './api';
-import { authService, type OfficerRegisterData } from './authService';
+import type { OfficerRegisterData } from './authService';
 
 export type AdminStationPayload = {
   name: string;
@@ -59,7 +59,8 @@ export const adminService = {
   },
 
   async createOfficer(payload: OfficerRegisterData) {
-    return authService.officerRegister(payload);
+    const { data } = await api.post('/admin/officers/create', payload);
+    return data;
   },
 
   async listStations() {

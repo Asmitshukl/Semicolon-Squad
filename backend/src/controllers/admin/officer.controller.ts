@@ -3,6 +3,7 @@ import { Role } from '../../generated/prisma/enums';
 import { getAuthenticatedUser } from '../../middleware/auth.middleware';
 import { sendJson } from '../../server.shared';
 import {
+  adminCreateOfficer,
   listAdminOfficers,
   reviewOfficerRegistration,
 } from '../../services/admin/officer.service';
@@ -38,4 +39,34 @@ export const adminOfficerReviewController = async (
 
   const result = await reviewOfficerRegistration(officerId, admin.id, action);
   sendJson(res, 200, result);
+};
+
+export const adminCreateOfficerController = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  body: Record<string, unknown>,
+) => {
+  const admin = await getAuthenticatedUser(req, [Role.ADMIN]);
+
+  const name = String(body.name ?? '').trim();
+  const email = String(body.email ?? '').trim().toLowerCase();
+  const phone = String(body.phone ?? '').trim();
+  const password = String(body.password ?? '');
+  const badgeNumber = String(body.badgeNumber ?? '').trim();
+  const stationCode = String(body.stationCode ?? '').trim();
+  const rank = body.rank ? String(body.rank).trim() : undefined;
+
+  if (!name || name.length < 2) throw new ApiError(400, 'Full name is required.');
+  if (!/^\S+@\S+\.\S+$/.test(email)) throw new ApiError(400, 'Enter a valid email address.');
+  if (!/^[6-9]\d{9}$/.test(phone)) throw new ApiError(400, 'Enter a valid 10-digit Indian mobile number.');
+  if (!badgeNumber || badgeNumber.length < 3) throw new ApiError(400, 'Badge number is required.');
+  if (!stationCode || stationCode.length < 3) throw new ApiError(400, 'Station code is required.');
+  if (password.length < 8) throw new ApiError(400, 'Password must be at least 8 characters.');
+
+  const officer = await adminCreateOfficer(
+    { name, email, phone, password, badgeNumber, stationCode, rank },
+    admin.id,
+  );
+
+  sendJson(res, 201, officer);
 };

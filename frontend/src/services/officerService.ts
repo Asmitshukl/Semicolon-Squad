@@ -299,4 +299,16 @@ export const officerService = {
     const { data } = await api.get<{ success: true; data: BnsSectionTranslation }>(`/officer/bns/${sectionNumber}`);
     return data.data;
   },
+
+  async generateFIRFromRecording(recordingId: string) {
+    // Create a draft FIR linked to the recording
+    const recording = await this.getVoiceRecording(recordingId);
+    const fir = await this.createFIR({
+      incidentDescription: recording.transcript || 'From voice recording',
+      incidentLocation: 'Unknown',
+      incidentDate: new Date().toISOString(),
+      voiceRecordingIds: [recordingId],
+    });
+    return fir;
+  },
 };
