@@ -34,17 +34,36 @@ const pickExtension = (mime) => {
 const runVictimMlPipeline = async (userId, input) => {
     await (0, catalog_service_1.ensureVictimCatalog)();
     const langIso = (input.language ?? 'hi').trim().toLowerCase();
+    const fallbackText = (input.rawText ?? '').trim();
     let normalized;
     if (input.audio?.buffer && input.audio.buffer.length > 0) {
-        if (!env_1.env.mlServiceUrl) {
-            throw new ApiError_1.ApiError(503, 'Voice intake requires the Python ML service. Set ML_SERVICE_URL in the backend environment, or use typed text.');
+        if (env_1.env.mlServiceUrl) {
+            try {
+                normalized = await (0, mlClient_1.remotePipelineAudio)(input.audio.buffer, input.audio.filename, input.audio.mimeType, {
+                    language: langIso,
+                    raw_text: fallbackText,
+                    rawText: fallbackText,
+                    rawComplaintText: fallbackText,
+                });
+            }
+            catch {
+                if (!fallbackText) {
+                    throw new ApiError_1.ApiError(503, 'Voice transcription is temporarily unavailable. Record again with the live transcript visible below, or type your complaint text.');
+                }
+                normalized = await (0, localPipeline_1.buildLocalFullPipelineFromText)(fallbackText);
+                normalized.transcript = fallbackText;
+            }
         }
-        normalized = await (0, mlClient_1.remotePipelineAudio)(input.audio.buffer, input.audio.filename, input.audio.mimeType, {
-            language: langIso,
-        });
+        else {
+            if (!fallbackText) {
+                throw new ApiError_1.ApiError(503, 'Voice intake needs either the Python ML service or a browser transcript. Please allow the visible transcript to populate, or type your complaint text.');
+            }
+            normalized = await (0, localPipeline_1.buildLocalFullPipelineFromText)(fallbackText);
+            normalized.transcript = fallbackText;
+        }
     }
-    else if ((input.rawText ?? '').trim()) {
-        const t = input.rawText.trim();
+    else if (fallbackText) {
+        const t = fallbackText;
         if (env_1.env.mlServiceUrl) {
             try {
                 normalized = await (0, mlClient_1.remotePipelineText)(t, langIso);

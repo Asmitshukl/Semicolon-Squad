@@ -7,6 +7,7 @@ type KnownDatabaseError = {
 
 export const normalizeDatabaseError = (error: unknown): never => {
   const dbError = error as KnownDatabaseError;
+  const message = dbError?.message ?? (error instanceof Error ? error.message : '');
 
   if (dbError?.code === 'P2021') {
     throw new ApiError(
@@ -15,7 +16,12 @@ export const normalizeDatabaseError = (error: unknown): never => {
     );
   }
 
-  if (dbError?.code === 'ETIMEDOUT' || dbError?.code === 'EAI_AGAIN') {
+  if (
+    dbError?.code === 'ETIMEDOUT' ||
+    dbError?.code === 'EAI_AGAIN' ||
+    dbError?.code === 'P1001' ||
+    message.includes("Can't reach database server")
+  ) {
     throw new ApiError(
       503,
       'Database connection failed. Check DATABASE_URL, internet access, and whether the remote database is reachable.',

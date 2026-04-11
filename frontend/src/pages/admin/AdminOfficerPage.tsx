@@ -48,7 +48,7 @@ export const AdminOfficerPage = () => {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [createForm, setCreateForm] = useState(emptyCreate);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED' | 'REJECTED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED' | 'REJECTED'>('PENDING');
 
   const loadOfficers = async (status?: string) => {
     try {
@@ -69,8 +69,30 @@ export const AdminOfficerPage = () => {
     try {
       setBusyId(officerId);
       setError(null);
-      await adminService.reviewOfficer(officerId, action);
-      await loadOfficers(statusFilter === 'ALL' ? undefined : statusFilter);
+      const updated = await adminService.reviewOfficer(officerId, action);
+      setOfficers((current) => {
+        const nextStatus = updated?.verificationStatus ?? (action === 'approve' ? 'VERIFIED' : 'REJECTED');
+        const nextIsActive = updated?.user?.isActive ?? action === 'approve';
+        return current.flatMap((officer) => {
+          if (officer.id !== officerId) return [officer];
+
+          const nextOfficer: OfficerRow = {
+            ...officer,
+            verificationStatus: nextStatus,
+            verifiedAt: updated?.verifiedAt ?? new Date().toISOString(),
+            user: {
+              ...officer.user,
+              isActive: nextIsActive,
+            },
+          };
+
+          if (statusFilter === 'ALL' || statusFilter === nextStatus) {
+            return [nextOfficer];
+          }
+          return [];
+        });
+      });
+      window.dispatchEvent(new Event('admin:refresh'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to update officer status.');
     } finally {
@@ -202,25 +224,40 @@ export const AdminOfficerPage = () => {
                       {new Date(officer.createdAt).toLocaleString('en-IN')}
                     </td>
                     <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
-                      <button
-                        type="button"
-                        disabled={busyId === officer.id}
-                        onClick={() => void handleReview(officer.id, 'approve')}
-                        className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] bg-[#16A34A] text-white hover:bg-[#15803d] disabled:opacity-50"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busyId === officer.id}
-                        onClick={() => void handleReview(officer.id, 'reject')}
-                        className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] border border-[#DC2626] text-[#FCA5A5] hover:bg-[#DC2626]/10 disabled:opacity-50"
-                      >
-                        Reject
-                      </button>
+                      {officer.verificationStatus === 'PENDING' ? (
+                        <>
+                          <button
+                            type="button"
+                            disabled={busyId === officer.id}
+                            onClick={() => void handleReview(officer.id, 'approve')}
+                            className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] bg-[#16A34A] text-white hover:bg-[#15803d] disabled:opacity-50"
+                          >
+                            {busyId === officer.id ? 'Working...' : 'Approve'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busyId === officer.id}
+                            onClick={() => void handleReview(officer.id, 'reject')}
+                            className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] border border-[#DC2626] text-[#FCA5A5] hover:bg-[#DC2626]/10 disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#9CA3AF]">
+                          No action needed
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
+                {officers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-10 text-center text-sm text-[#9CA3AF]">
+                      No officers found for the current filter.
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>

@@ -114,10 +114,11 @@ export class FIRPdfService {
     const statement = fir.victimStatements[0];
     const latestRecording = fir.voiceRecordings[0];
     const sections = fir.bnsSections.length
-      ? fir.bnsSections.map((section) =>
-          `BNS ${section.sectionNumber} ${section.sectionTitle}${section.ipcEquivalent ? ` (IPC ${section.ipcEquivalent})` : ''}`,
-        )
-      : ['No BNS section selected yet'];
+      ? fir.bnsSections.map((section) => ({
+          label: `BNS ${section.sectionNumber} ${section.sectionTitle}${section.ipcEquivalent ? ` (IPC ${section.ipcEquivalent})` : ''}`,
+          reasoning: (section as typeof section & { mappingReasoning?: string | null }).mappingReasoning ?? null,
+        }))
+      : [{ label: 'No BNS section selected yet', reasoning: null }];
 
     const lines = [
       'NyayaSetu FIR Document',
@@ -138,7 +139,10 @@ export class FIRPdfService {
       `Incident Location: ${fir.incidentLocation}`,
       '',
       'Applied Sections:',
-      ...sections.flatMap((section) => wrapText(`- ${section}`, 88)),
+      ...sections.flatMap((section) => [
+        ...wrapText(`- ${section.label}`, 88),
+        ...(section.reasoning ? wrapText(`  Reasoning: ${section.reasoning}`, 86) : []),
+      ]),
       '',
       'Incident Description:',
       ...wrapText(fir.incidentDescription || 'No description provided.', 92),

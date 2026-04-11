@@ -1,0 +1,2 @@
+[ML] Vihaan engine unavailable, using fallback pipeline: No module named 'nyayasetu_ml'
+INFO:     127.0.0.1:59479 - "GET /health HTTP/1.1" 200 OK

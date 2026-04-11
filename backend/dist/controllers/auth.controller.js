@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.logoutController = exports.meController = exports.refreshController = exports.loginController = void 0;
 const enums_1 = require("../generated/prisma/enums");
-const prismaNamespace_1 = require("../generated/prisma/internal/prismaNamespace");
+const client_1 = require("../generated/prisma/client");
 const database_1 = require("../config/database");
 const hash_1 = require("../utils/hash");
 const ApiError_1 = require("../utils/ApiError");
@@ -21,7 +21,7 @@ const findUserForLogin = async (email) => database_1.prisma.user
     },
 })
     .catch((error) => {
-    if (error instanceof prismaNamespace_1.PrismaClientKnownRequestError) {
+    if (error instanceof client_1.Prisma.PrismaClientKnownRequestError) {
         (0, databaseError_1.normalizeDatabaseError)(error);
     }
     (0, databaseError_1.normalizeDatabaseError)(error);

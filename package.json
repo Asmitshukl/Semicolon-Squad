@@ -3,6 +3,9 @@
     "@types/pg": "^8.20.0",
     "prisma": "^7.7.0"
   },
+  "scripts": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "type": "module",
   "dependencies": {
     "@prisma/adapter-pg": "^7.7.0",

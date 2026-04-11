@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { OfficerVerificationStatus, Role } from '../generated/prisma/enums';
-import { PrismaClientKnownRequestError } from '../generated/prisma/internal/prismaNamespace';
+import { Prisma } from '../generated/prisma/client';
 import { prisma } from '../config/database';
 import { verifyPassword } from '../utils/hash';
 import { ApiError } from '../utils/ApiError';
@@ -21,7 +21,7 @@ const findUserForLogin = async (email: string) =>
       },
     })
     .catch((error: unknown) => {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
         normalizeDatabaseError(error);
       }
       normalizeDatabaseError(error);

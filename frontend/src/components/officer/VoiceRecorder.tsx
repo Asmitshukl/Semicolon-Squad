@@ -189,21 +189,49 @@ export const VoiceRecorder = ({ onUploaded }: Props) => {
     clearTimer();
     stopSpeechRecognition();
     const recorder = recorderRef.current;
-    if (!recorder || recorder.state === 'inactive') {
+    
+    if (!recorder) {
       setRecording(false);
       stopStream();
       return;
     }
 
-    await new Promise<void>((resolve) => {
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
-        setAudioBlob(blob.size ? blob : null);
+    // Check the recorder state
+    if (recorder.state === 'inactive') {
+      setRecording(false);
+      stopStream();
+      return;
+    }
+
+    // Set up the stop handler BEFORE calling stop()
+    return new Promise<void>((resolve) => {
+      const onStop = () => {
+        // Remove the listener to avoid duplicate calls
+        recorder.removeEventListener('stop', onStop);
+        
+        // Create blob from recorded chunks
+        const mimeType = recorder.mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        
+        // Only set blob if it has data
+        setAudioBlob(blob.size > 0 ? blob : null);
+        setRecording(false);
+        stopStream();
+        
+        resolve();
+      };
+
+      recorder.addEventListener('stop', onStop);
+      
+      // Call stop to trigger the stop event
+      try {
+        recorder.stop();
+      } catch (error) {
+        console.error('Error stopping recorder:', error);
         setRecording(false);
         stopStream();
         resolve();
-      };
-      recorder.stop();
+      }
     });
   };
 

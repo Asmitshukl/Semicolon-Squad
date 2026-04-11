@@ -40,21 +40,41 @@ export const runVictimMlPipeline = async (userId: string, input: PipelineInput) 
   await ensureVictimCatalog();
 
   const langIso = (input.language ?? 'hi').trim().toLowerCase();
+  const fallbackText = (input.rawText ?? '').trim();
 
   let normalized: NormalizedFullPipeline;
 
   if (input.audio?.buffer && input.audio.buffer.length > 0) {
-    if (!env.mlServiceUrl) {
-      throw new ApiError(
-        503,
-        'Voice intake requires the Python ML service. Set ML_SERVICE_URL in the backend environment, or use typed text.',
-      );
+    if (env.mlServiceUrl) {
+      try {
+        normalized = await remotePipelineAudio(input.audio.buffer, input.audio.filename, input.audio.mimeType, {
+          language: langIso,
+          raw_text: fallbackText,
+          rawText: fallbackText,
+          rawComplaintText: fallbackText,
+        });
+      } catch {
+        if (!fallbackText) {
+          throw new ApiError(
+            503,
+            'Voice transcription is temporarily unavailable. Record again with the live transcript visible below, or type your complaint text.',
+          );
+        }
+        normalized = await buildLocalFullPipelineFromText(fallbackText);
+        normalized.transcript = fallbackText;
+      }
+    } else {
+      if (!fallbackText) {
+        throw new ApiError(
+          503,
+          'Voice intake needs either the Python ML service or a browser transcript. Please allow the visible transcript to populate, or type your complaint text.',
+        );
+      }
+      normalized = await buildLocalFullPipelineFromText(fallbackText);
+      normalized.transcript = fallbackText;
     }
-    normalized = await remotePipelineAudio(input.audio.buffer, input.audio.filename, input.audio.mimeType, {
-      language: langIso,
-    });
-  } else if ((input.rawText ?? '').trim()) {
-    const t = input.rawText!.trim();
+  } else if (fallbackText) {
+    const t = fallbackText;
     if (env.mlServiceUrl) {
       try {
         normalized = await remotePipelineText(t, langIso);

@@ -19,6 +19,17 @@ export const AdminHome = () => {
     void load();
   }, []);
 
+  useEffect(() => {
+    const refreshListener = () => {
+      void load();
+    };
+
+    window.addEventListener('admin:refresh', refreshListener);
+    return () => {
+      window.removeEventListener('admin:refresh', refreshListener);
+    };
+  }, []);
+
   const stats = dashboard?.stats;
 
   return (

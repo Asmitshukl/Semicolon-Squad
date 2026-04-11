@@ -13,10 +13,17 @@ import { Role } from '../../generated/prisma/enums';
 
 export class FIRController {
   static async createFIR(req: IncomingMessage, res: ServerResponse, body: any) {
-    const user = await getAuthenticatedUser(req, [Role.VICTIM]);
+    const user = await getAuthenticatedUser(req, [Role.VICTIM, Role.OFFICER]);
+
+    // For officers, they need to specify victimId in the request body. For victims, use their own ID.
+    const victimId = user.role === Role.VICTIM ? user.id : body.victimId;
+
+    if (!victimId) {
+      throw new ApiError(400, 'Victim ID is required');
+    }
 
     const fir = await FIRService.createFIR({
-      victimId: user.id,
+      victimId,
       stationId: body.stationId,
       incidentDate: new Date(body.incidentDate),
       incidentTime: body.incidentTime,
