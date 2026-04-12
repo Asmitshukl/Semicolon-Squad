@@ -2,7 +2,7 @@
 NyayaSetu — Named Entity Recognition (NER) Module
 Extracts structured incident entities from raw complaint text.
 
-In production: fine-tune IndicBERT/mBERT on an FIR NER corpus.
+In production: fine-tune distilbert-base-multilingual-cased on an FIR NER corpus.
 Here: rule-based extraction (same interface, drop-in replaceable).
 """
 
@@ -86,9 +86,9 @@ class NERExtractor:
     Rule-based NER extractor for Hindi/English FIR complaints.
 
     Production upgrade path:
-      1. Replace with fine-tuned IndicBERT NER model loaded via:
+      1. Replace with fine-tuned distilbert-base-multilingual-cased NER model loaded via:
          from transformers import pipeline
-         self.nlp = pipeline('ner', model='ai4bharat/indic-bert', ...)
+         self.nlp = pipeline('ner', model='distilbert-base-multilingual-cased', ...)
       2. Keep the same extract() interface — rest of pipeline unchanged.
     """
 

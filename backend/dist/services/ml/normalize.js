@@ -62,7 +62,19 @@ const normalizeFullPipelineResponse = (json) => {
         ];
     }
     if (!primarySection || classifications.length === 0) {
-        throw new Error('ML response missing primary BNS classification.');
+        // Graceful fallback — don't throw, return an empty-but-valid payload
+        return {
+            transcript,
+            rawComplaintText: rawComplaintText.trim() || transcript,
+            entities,
+            classifications: [],
+            urgencyLevel: parseUrgency(undefined),
+            urgencyReason: 'Could not determine BNS section from audio.',
+            severityScore: 0,
+            victimRightsSummary: undefined,
+            victimRightsBullets: undefined,
+            modelVersion: asString(o.model_version) ?? 'ml-unknown',
+        };
     }
     const victimRights = asRecord(o.victim_rights ?? o.victimRights);
     const bulletsRaw = victimRights.bullets ?? victimRights.items;

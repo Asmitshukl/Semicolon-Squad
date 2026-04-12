@@ -221,95 +221,118 @@ export class VoiceRecordingService {
   static async processVoiceRecording(recordingId: string) {
     const recording = await prisma.voiceRecording.findUnique({
       where: { id: recordingId },
-      include: {
-        victimStatement: true,
-      },
+      include: { victimStatement: true },
     });
 
     if (!recording) {
       throw new ApiError(404, 'Voice recording not found');
     }
 
+    const absolutePath = path.isAbsolute(recording.fileUrl)
+      ? recording.fileUrl
+      : path.join(process.cwd(), recording.fileUrl);
+    const isoLanguage = languageToIso(recording.language);
+    const transcriptFallback = (recording.transcript ?? '').trim();
+
+    // ── Step 1: Get normalized pipeline output ──────────────────────────────
+    let normalized: Awaited<ReturnType<typeof buildLocalFullPipelineFromText>> | null = null;
+
     try {
-      const absolutePath = path.isAbsolute(recording.fileUrl)
-        ? recording.fileUrl
-        : path.join(process.cwd(), recording.fileUrl);
       const audioBuffer = await fs.readFile(absolutePath);
-      const isoLanguage = languageToIso(recording.language);
 
-      const transcriptFallback = (recording.transcript ?? '').trim();
-      const normalized =
-        env.mlServiceUrl
-          ? await remotePipelineAudio(
-              audioBuffer,
-              path.basename(absolutePath),
-              `audio/${extensionFromMime(undefined, absolutePath)}`,
-              {
-                language: isoLanguage,
-                raw_text: transcriptFallback,
-                rawText: transcriptFallback,
-                rawComplaintText: transcriptFallback,
-              },
-            ).catch(async () => {
-              if (!transcriptFallback) {
-                throw new Error('ML audio pipeline failed and no transcript fallback is available.');
-              }
-              const local = await buildLocalFullPipelineFromText(transcriptFallback);
-              local.transcript = transcriptFallback;
-              return local;
-            })
-          : transcriptFallback
-            ? await buildLocalFullPipelineFromText(transcriptFallback).then((local) => ({
-                ...local,
-                transcript: transcriptFallback,
-              }))
-            : (() => {
-                throw new Error('ML_SERVICE_URL is required for audio transcription.');
-              })();
-
-      const transcript = (normalized.transcript || normalized.rawComplaintText || '').trim();
-      if (!transcript) {
-        throw new Error('Transcript is empty after ML processing.');
+      if (env.mlServiceUrl) {
+        try {
+          normalized = await remotePipelineAudio(
+            audioBuffer,
+            path.basename(absolutePath),
+            `audio/${extensionFromMime(undefined, absolutePath)}`,
+            {
+              language: isoLanguage,
+              raw_text: transcriptFallback,
+              rawText: transcriptFallback,
+              rawComplaintText: transcriptFallback,
+            },
+          );
+        } catch (mlErr) {
+          console.warn('[VoiceRecording] ML audio pipeline failed, trying text fallback:', mlErr);
+          if (transcriptFallback) {
+            normalized = await buildLocalFullPipelineFromText(transcriptFallback);
+            normalized.transcript = transcriptFallback;
+          }
+        }
+      } else if (transcriptFallback) {
+        normalized = await buildLocalFullPipelineFromText(transcriptFallback);
+        normalized.transcript = transcriptFallback;
       }
+    } catch (readErr) {
+      console.error('[VoiceRecording] Failed to read audio file:', readErr);
+    }
 
-      const updatedRecording = await this.updateWithTranscript(recordingId, transcript);
+    // ── Step 2: Extract transcript (best-effort, never throw) ───────────────
+    const transcript = (normalized?.transcript || normalized?.rawComplaintText || transcriptFallback).trim();
 
-      const statement = recording.victimStatement
-        ? await prisma.victimStatement.update({
-            where: { id: recording.victimStatement.id },
-            data: {
-              rawText: transcript,
-              language: recording.language,
-              firId: recording.firId,
-            },
-          })
-        : await prisma.victimStatement.create({
-            data: {
-              userId: recording.userId,
-              voiceRecordingId: recordingId,
-              rawText: transcript,
-              language: recording.language,
-              firId: recording.firId,
-            },
+    try {
+      // Save transcript if we got one
+      const updatedRecording = transcript
+        ? await this.updateWithTranscript(recordingId, transcript)
+        : await prisma.voiceRecording.findUniqueOrThrow({
+            where: { id: recordingId },
+            include: { user: true, fir: true, victimStatement: true },
           });
 
-      await persistVictimClassification(statement.id, fullPipelineToClassificationPayload(normalized));
+      // ── Step 3: Persist statement + classification if transcript available ─
+      if (transcript && normalized) {
+        const statement = recording.victimStatement
+          ? await prisma.victimStatement.update({
+              where: { id: recording.victimStatement.id },
+              data: {
+                rawText: transcript,
+                language: recording.language,
+                firId: recording.firId,
+              },
+            })
+          : await prisma.victimStatement.create({
+              data: {
+                userId: recording.userId,
+                voiceRecordingId: recordingId,
+                rawText: transcript,
+                language: recording.language,
+                firId: recording.firId,
+              },
+            });
 
-      if (recording.firId) {
-        await prisma.fIR.update({
-          where: { id: recording.firId },
-          data: {
-            incidentDescription: transcript,
-            urgencyLevel: normalized.urgencyLevel,
-          },
-        });
-        await FIRSummaryService.generateSummary(recording.firId);
+        // Only persist classification if we actually got BNS sections
+        if (normalized.classifications.length > 0) {
+          await persistVictimClassification(
+            statement.id,
+            fullPipelineToClassificationPayload(normalized),
+          );
+
+          if (recording.firId) {
+            await prisma.fIR.update({
+              where: { id: recording.firId },
+              data: {
+                incidentDescription: transcript,
+                urgencyLevel: normalized.urgencyLevel,
+              },
+            });
+            await FIRSummaryService.generateSummary(recording.firId);
+          }
+        }
       }
 
       return updatedRecording;
     } catch (error) {
-      console.error('Error processing voice recording:', error);
-      throw new ApiError(500, 'Failed to process voice recording');
+      console.error('[VoiceRecording] Error during post-processing:', error);
+      // Re-throw only real 4xx errors; swallow 5xx/runtime errors
+      if (error instanceof ApiError && error.statusCode < 500) throw error;
+      // Return the recording as saved (upload succeeded even if processing failed)
+      const saved = await prisma.voiceRecording.findUnique({
+        where: { id: recordingId },
+        include: { user: true, fir: true, victimStatement: true },
+      });
+      if (!saved) throw new ApiError(404, 'Voice recording not found after processing');
+      return saved;
     }
   }
 

@@ -1,12 +1,15 @@
 """
 NyayaSetu ML API
 
-Wraps the `Vihaan-ML-2` package and exposes stable JSON contracts for the TS backend.
+Wraps the Vihaan-ML-2 package and exposes stable JSON contracts for the TS backend.
 Falls back to lightweight keyword heuristics if the full Python stack is unavailable.
+Always transcribes audio via openai-whisper small (best balance of speed and accuracy
+for Hindi/Hinglish/English on CPU).
 """
 
 from __future__ import annotations
 
+import io
 import os
 import sys
 import tempfile
@@ -14,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,7 +25,103 @@ VIHAAN_ROOT = ROOT / "Vihaan-ML-2"
 if str(VIHAAN_ROOT) not in sys.path:
     sys.path.insert(0, str(VIHAAN_ROOT))
 
+# ── Whisper lazy-loader ─────────────────────────────────────────────
+# large-v3: best Whisper model for Hindi / English / Hinglish (code-switching)
+# Automatically uses CUDA (GPU) if available, otherwise CPU.
+_WHISPER_MODEL = None
+_WHISPER_AVAILABLE = False
+_WHISPER_DEVICE = "cpu"
+_WHISPER_USE_FP16 = False
+
+# small   : 474 MB  — fast on CPU
+# medium  : 1.5 GB  — higher accuracy
+# large-v3: 3 GB    — best accuracy for Hindi/Hinglish/English (requires GPU or 8GB+ RAM)
+WHISPER_MODEL_NAME = os.getenv("NYAYASETU_WHISPER_MODEL", "medium")
+
+
+def _detect_device() -> tuple[str, bool]:
+    try:
+        import torch
+        if torch.cuda.is_available():
+            gpu = torch.cuda.get_device_name(0)
+            print(f"[Whisper] CUDA GPU detected: {gpu} — using GPU with fp16")
+            return "cuda", True
+    except Exception:
+        pass
+    print("[Whisper] No CUDA GPU detected — using CPU with fp32")
+    return "cpu", False
+
+
+def _load_whisper():
+    global _WHISPER_MODEL, _WHISPER_AVAILABLE, _WHISPER_DEVICE, _WHISPER_USE_FP16
+    if _WHISPER_AVAILABLE:
+        return _WHISPER_MODEL
+    try:
+        import whisper  # openai-whisper
+        device, use_fp16 = _detect_device()
+        _WHISPER_DEVICE = device
+        _WHISPER_USE_FP16 = use_fp16
+        print(f"[Whisper] Loading {WHISPER_MODEL_NAME} on {device} …")
+        _WHISPER_MODEL = whisper.load_model(WHISPER_MODEL_NAME, device=device)
+        _WHISPER_AVAILABLE = True
+        print(f"[Whisper] {WHISPER_MODEL_NAME} loaded successfully on {device}.")
+    except Exception as exc:
+        print(f"[Whisper] Failed to load: {exc}")
+        _WHISPER_MODEL = None
+        _WHISPER_AVAILABLE = False
+    return _WHISPER_MODEL
+
+
+def _whisper_transcribe_bytes(audio_bytes: bytes, filename: str, language: str) -> str:
+    """Transcribe audio bytes to English using Whisper large-v3 (best for Hindi/Hinglish)."""
+    model = _load_whisper()
+    if model is None:
+        return ""
+    try:
+        suffix = Path(filename or "recording.webm").suffix or ".webm"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(audio_bytes)
+            tmp_path = tmp.name
+        try:
+            # task="translate" → always outputs English regardless of input language
+            # language=None   → auto-detect (handles Hinglish code-switching better)
+            result = model.transcribe(
+                tmp_path,
+                task="translate",
+                language=None,
+                fp16=_WHISPER_USE_FP16,
+                temperature=0.0,
+                best_of=1,
+                beam_size=3,              # reduced from 5 for faster CPU inference
+                condition_on_previous_text=True,
+            )
+            text = (result.get("text") or "").strip()
+            detected_lang = result.get("language", "unknown")
+            print(f"[Whisper] Detected language: {detected_lang} | Transcribed {len(audio_bytes)} bytes → {len(text)} chars")
+            return text
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+    except Exception as exc:
+        print(f"[Whisper] Transcription error: {exc}")
+        return ""
+
+
+# Eagerly load model in background thread at startup
+import threading
+threading.Thread(target=_load_whisper, daemon=True).start()
+
 app = FastAPI(title="NyayaSetu ML", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],          # allow browser calls from any localhost port
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class PipelineJsonBody(BaseModel):
@@ -43,37 +143,106 @@ def _clean_section(value: str | None) -> str:
     return cleaned
 
 
+# BNS section metadata — section_number, title, ipc_equivalent, cognizable, bailable
+BNS_SECTION_META: dict[str, dict] = {
+    "309": {"title": "Robbery", "ipc": "390", "cognizable": True, "bailable": False},
+    "310": {"title": "Dacoity", "ipc": "391", "cognizable": True, "bailable": False},
+    "303": {"title": "Theft", "ipc": "379", "cognizable": True, "bailable": False},
+    "304": {"title": "Theft in dwelling house", "ipc": "380", "cognizable": True, "bailable": False},
+    "316": {"title": "Cheating and dishonestly inducing delivery of property", "ipc": "420", "cognizable": True, "bailable": False},
+    "351": {"title": "Criminal intimidation", "ipc": "506", "cognizable": True, "bailable": True},
+    "115": {"title": "Voluntarily causing hurt", "ipc": "323", "cognizable": False, "bailable": True},
+    "117": {"title": "Voluntarily causing grievous hurt", "ipc": "325", "cognizable": True, "bailable": False},
+    "140": {"title": "Assault or criminal force to woman with intent to outrage her modesty", "ipc": "354", "cognizable": True, "bailable": False},
+    "137": {"title": "Kidnapping", "ipc": "363", "cognizable": True, "bailable": False},
+    "103": {"title": "Murder", "ipc": "302", "cognizable": True, "bailable": False},
+    "318": {"title": "Fraud", "ipc": "415", "cognizable": True, "bailable": False},
+    "324": {"title": "Mischief causing damage", "ipc": "427", "cognizable": False, "bailable": True},
+}
+
+
 def _heuristic_sections(text: str) -> list[dict[str, Any]]:
     lowered = text.lower()
-    if any(word in lowered for word in ("theft", "stolen", "chori", "chori hui", "chor")):
-        primary = "303"
-        alt = "351"
-    elif any(word in lowered for word in ("fraud", "otp", "cheating", "scam")):
-        primary = "316"
-        alt = "351"
-    elif any(word in lowered for word in ("threat", "intimidation", "blackmail", "dhamki")):
-        primary = "351"
-        alt = "316"
-    else:
-        primary = "115"
-        alt = "351"
-    return [
-        {"section_number": primary, "confidence": 0.81, "title": "Fallback primary"},
-        {"section_number": alt, "confidence": 0.43, "title": "Fallback alternate"},
-    ]
+    matched: list[tuple[str, float]] = []  # (section_number, confidence)
+
+    # Robbery / looting (highest priority — armed theft)
+    if any(w in lowered for w in ("loot", "looted", "looting", "snatch", "snatched", "rob", "robbed", "chheena", "loot liya")):
+        matched.append(("309", 0.88))
+    # Theft / stealing
+    if any(w in lowered for w in ("stole", "stolen", "steal", "theft", "chori", "churaya", "le gaya", "le gaye")):
+        matched.append(("303", 0.82))
+    # House / dwelling theft
+    if any(w in lowered for w in ("ghar mein", "house", "flat", "room", "dwelling", "andar ghus")):
+        if any(w in lowered for w in ("stole", "stolen", "chori", "theft", "loot", "le gaya")):
+            matched.append(("304", 0.79))
+    # Murder / attempt to murder
+    if any(w in lowered for w in ("murder", "killed", "maar diya", "maut", "death", "hatya", "qatl")):
+        matched.append(("103", 0.95))
+    # Grievous hurt
+    if any(w in lowered for w in ("fracture", "hospital", "serious injury", "grievous", "haddi", "toot gaya", "blood", "khoon")):
+        matched.append(("117", 0.75))
+    # Simple hurt / assault
+    elif any(w in lowered for w in ("beat", "beaten", "assault", "hit", "slap", "punch", "maar", "peet", "thappad", "laat")):
+        matched.append(("115", 0.68))
+    # Online fraud / cheating
+    if any(w in lowered for w in ("fraud", "scam", "otp", "upi", "online", "cheating", "bank call", "investment", "fake", "dhoka")):
+        matched.append(("316", 0.84))
+        matched.append(("318", 0.65))
+    # Threat / intimidation
+    if any(w in lowered for w in ("threat", "threats", "threatened", "dhamki", "maar dunga", "jaan se", "blackmail")):
+        matched.append(("351", 0.72))
+    # Kidnapping
+    if any(w in lowered for w in ("kidnap", "kidnapped", "abduct", "apaharan", "uthaya", "le gaye", "forcibly taken")):
+        matched.append(("137", 0.86))
+    # Molestation / outrage modesty
+    if any(w in lowered for w in ("molest", "molestation", "outrage", "touch", "chhed", "chheda")):
+        matched.append(("140", 0.82))
+
+    # Deduplicate by section number, keep highest confidence
+    seen: dict[str, float] = {}
+    for sec, conf in matched:
+        if sec not in seen or conf > seen[sec]:
+            seen[sec] = conf
+
+    if not seen:
+        # Generic fallback
+        seen = {"115": 0.45, "351": 0.35}
+
+    results = []
+    for sec, conf in sorted(seen.items(), key=lambda x: -x[1]):
+        meta = BNS_SECTION_META.get(sec, {"title": f"BNS Section {sec}", "ipc": None, "cognizable": True, "bailable": False})
+        results.append({
+            "section_number": sec,
+            "confidence": conf,
+            "title": meta["title"],
+            "ipc_equivalent": meta.get("ipc"),
+            "cognizable": meta["cognizable"],
+            "bailable": meta["bailable"],
+        })
+
+    return results
 
 
 def _fallback_pipeline(raw_text: str, transcript: str, language: str) -> dict[str, Any]:
     classifications = _heuristic_sections(raw_text or transcript)
     primary = classifications[0]["section_number"]
+    primary_meta = BNS_SECTION_META.get(primary, {})
+    is_non_bailable = not primary_meta.get("bailable", False)
+    ipc_equivalents = {c["section_number"]: c["ipc_equivalent"] for c in classifications if c.get("ipc_equivalent")}
     return {
         "transcript": transcript or raw_text,
         "raw_complaint_text": raw_text or transcript,
-        "entities": {"language": language, "engine": "fallback"},
+        "entities": {
+            "language": language,
+            "engine": "heuristic",
+            "cognizable": primary_meta.get("cognizable", True),
+            "bailable": primary_meta.get("bailable", False),
+            "ipc_equivalents": ipc_equivalents,
+        },
         "classifications": classifications,
         "primary_section_number": primary,
-        "urgency_level": "HIGH" if primary in {"115", "75"} else "MEDIUM",
-        "urgency_reason": "Fallback urgency based on detected complaint pattern.",
+        "urgency_level": "HIGH" if is_non_bailable else "MEDIUM",
+        "urgency_reason": f"BNS §{primary} — {primary_meta.get('title', 'Section')} is {'non-bailable' if is_non_bailable else 'bailable'}.",
         "severity_score": classifications[0]["confidence"],
         "victim_rights": {
             "summary": "You can request a free FIR copy, preserve evidence, and use Zero FIR where applicable.",
@@ -83,8 +252,9 @@ def _fallback_pipeline(raw_text: str, transcript: str, language: str) -> dict[st
                 "Use the nearest police station if jurisdiction is unclear.",
             ],
         },
-        "model_version": "vihaan-fallback-v1",
+        "model_version": "nyayasetu-heuristic-v2",
     }
+
 
 
 def _build_engine():
@@ -175,21 +345,30 @@ def _run_text_pipeline(text: str, language: str) -> dict[str, Any]:
 
 
 def _run_audio_pipeline(audio_bytes: bytes, filename: str, language: str, raw_text: str = "") -> dict[str, Any]:
-    if ENGINE is None:
-        transcript = raw_text.strip() or "[audio received - transcript unavailable in fallback mode]"
-        return _fallback_pipeline(raw_text.strip(), transcript, language)
+    # ── Step 1: Always attempt Whisper transcription first ──────────
+    whisper_transcript = _whisper_transcribe_bytes(audio_bytes, filename, language)
+    transcript = whisper_transcript or raw_text.strip()
 
-    suffix = Path(filename or "recording.wav").suffix or ".wav"
-    try:
-        output = ENGINE.from_audio_bytes(audio_bytes, suffix=suffix, language=language)
-        payload = _output_to_payload(output, language=language)
-        if raw_text.strip():
-            payload["raw_complaint_text"] = raw_text.strip()
-        return payload
-    except Exception as exc:  # pragma: no cover - fallback path
-        print(f"[ML] Audio pipeline failed, falling back: {exc}")
-        transcript = raw_text.strip() or "[audio received - transcript unavailable in fallback mode]"
-        return _fallback_pipeline(raw_text.strip(), transcript, language)
+    # ── Step 2: Try full Vihaan engine (uses its own Whisper internally) ─
+    if ENGINE is not None:
+        suffix = Path(filename or "recording.wav").suffix or ".wav"
+        try:
+            output = ENGINE.from_audio_bytes(audio_bytes, suffix=suffix, language=language)
+            payload = _output_to_payload(output, language=language)
+            # Always prefer our standalone Whisper transcript as it's more reliable
+            if transcript:
+                payload["transcript"] = transcript
+                payload["raw_complaint_text"] = transcript
+            return payload
+        except Exception as exc:
+            print(f"[ML] Vihaan audio pipeline failed, using fallback: {exc}")
+
+    # ── Step 3: Fallback — use Whisper transcript + heuristic BNS ──
+    if not transcript:
+        transcript = "[No audio received or transcription unavailable]"
+
+    return _fallback_pipeline(transcript, transcript, language)
+
 
 
 @app.get("/health")
@@ -197,8 +376,12 @@ def health() -> dict[str, Any]:
     return {
         "status": "ok",
         "engine": "vihaan" if ENGINE is not None else "fallback",
+        "whisper_model": WHISPER_MODEL_NAME,
+        "whisper_device": _WHISPER_DEVICE,
+        "whisper_status": "loaded" if _WHISPER_AVAILABLE else "loading",
         "vihaan_root": str(VIHAAN_ROOT),
     }
+
 
 
 @app.post("/v1/pipeline/json")
@@ -237,10 +420,16 @@ async def classify(payload: ClassifyJsonBody) -> dict[str, Any]:
 
 @app.post("/v1/transcribe")
 async def transcribe(audio: UploadFile = File(...), language: str = Form("hi")) -> dict[str, Any]:
-    audio_bytes = await audio.read()
-    payload = _run_audio_pipeline(audio_bytes, audio.filename or "recording.wav", language)
-    return {
-        "transcript": payload["transcript"],
-        "language": language,
-        "model_version": payload["model_version"],
-    }
+    try:
+        audio_bytes = await audio.read()
+        if not audio_bytes:
+            return {"transcript": "", "language": language, "model_version": "whisper-small", "error": "empty audio"}
+        payload = _run_audio_pipeline(audio_bytes, audio.filename or "recording.wav", language)
+        return {
+            "transcript": payload["transcript"],
+            "language": language,
+            "model_version": payload["model_version"],
+        }
+    except Exception as exc:
+        print(f"[transcribe] Error: {exc}")
+        return {"transcript": "", "language": language, "model_version": "whisper-small", "error": str(exc)}
