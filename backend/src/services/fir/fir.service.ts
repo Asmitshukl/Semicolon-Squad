@@ -14,6 +14,19 @@ export interface CreateFIRInput {
   urgencyLevel?: UrgencyLevel;
 }
 
+export interface CreateOfficerDraftFIRInput {
+  /** The officer's own user ID — used as a placeholder victimId for officer-generated drafts */
+  officerUserId: string;
+  stationId: string;
+  incidentDate: Date;
+  incidentLocation: string;
+  incidentDescription: string;
+  bnsSectionIds?: string[];
+  urgencyLevel?: UrgencyLevel;
+  /** Optionally link the originating voice recording */
+  voiceRecordingId?: string;
+}
+
 export interface UpdateFIRInput {
   incidentDate?: Date;
   incidentTime?: string;
@@ -69,6 +82,73 @@ export class FIRService {
         victim: true,
         station: true,
         bnsSections: true,
+      },
+    });
+
+    return fir;
+  }
+
+  /**
+   * Officer-generated draft FIR from a voice recording.
+   * Uses the officer's own user record as the FIR owner (victim field)
+   * since this is an officer-initiated draft directly from a voice statement.
+   */
+  static async createOfficerDraftFIR(input: CreateOfficerDraftFIRInput): Promise<FIR> {
+    const officer = await prisma.user.findUnique({
+      where: { id: input.officerUserId },
+      include: { officer: { include: { station: true } } },
+    });
+
+    if (!officer) {
+      throw new ApiError(404, 'Officer user not found');
+    }
+
+    if (!officer.officer) {
+      throw new ApiError(403, 'User does not have an officer profile');
+    }
+
+    const stationId = input.stationId || officer.officer.stationId;
+
+    const station = await prisma.policeStation.findUnique({
+      where: { id: stationId },
+    });
+
+    if (!station) {
+      throw new ApiError(404, 'Police station not found');
+    }
+
+    const fir = await prisma.fIR.create({
+      data: {
+        // Link the FIR's victim to the officer's own user — acts as a placeholder for officer-generated drafts
+        victimId: input.officerUserId,
+        stationId,
+        officerId: officer.officer.id,
+        incidentDate: input.incidentDate,
+        incidentLocation: input.incidentLocation,
+        incidentDescription: input.incidentDescription,
+        urgencyLevel: input.urgencyLevel || UrgencyLevel.MEDIUM,
+        status: FIRStatus.DRAFT,
+        isOnlineFIR: false,
+        bnsSections: input.bnsSectionIds?.length
+          ? { connect: input.bnsSectionIds.map((id) => ({ id })) }
+          : undefined,
+        // Link voice recording if provided
+        voiceRecordings: input.voiceRecordingId
+          ? { connect: { id: input.voiceRecordingId } }
+          : undefined,
+      },
+      include: {
+        victim: { select: { id: true, name: true, phone: true } },
+        officer: {
+          include: { user: { select: { name: true } }, station: true },
+        },
+        station: true,
+        bnsSections: true,
+        voiceRecordings: {
+          include: { victimStatement: true },
+        },
+        caseUpdates: true,
+        victimStatements: true,
       },
     });
 

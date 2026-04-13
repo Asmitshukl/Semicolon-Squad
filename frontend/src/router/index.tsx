@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import { PrivateRoute } from '../features/shared/auth/PrivateRoute';
 
@@ -25,7 +25,7 @@ const BNSTranslator         = lazy(() => import('../pages/officer/BNSTranslator'
 const VoiceStatements       = lazy(() => import('../pages/officer/VoiceStatements').then(m => ({ default: m.VoiceStatements })));
 const OfficerProfile        = lazy(() => import('../pages/officer/OfficerProfile').then(m => ({ default: m.OfficerProfile })));
 
-const AdminLayout             = lazy(() => import('../components/layout/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
+const AdminLayout           = lazy(() => import('../components/layout/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
 const AdminHome             = lazy(() => import('../pages/admin/AdminHome').then(m => ({ default: m.AdminHome })));
 const AdminOfficerPage      = lazy(() => import('../pages/admin/AdminOfficerPage').then(m => ({ default: m.AdminOfficerPage })));
 const AdminStationPage      = lazy(() => import('../pages/admin/AdminStationPage').then(m => ({ default: m.AdminStationPage })));
@@ -33,12 +33,13 @@ const AdminBNSPage          = lazy(() => import('../pages/admin/AdminBNSPage').t
 
 const NotFound              = lazy(() => import('../pages/NotFound').then(m => ({ default: m.NotFound })));
 const Unauthorized          = lazy(() => import('../pages/Unauthorized').then(m => ({ default: m.Unauthorized })));
+const PublicLandingPage     = lazy(() => import('../pages/PublicLandingPage').then(m => ({ default: m.PublicLandingPage })));
 
 /* ── Full-page loading spinner ──────────────────────────────────── */
 const PageLoader = () => (
-  <div className="min-h-screen bg-navy-900 flex items-center justify-center">
+  <div className="min-h-screen bg-[#12100E] flex items-center justify-center">
     <div className="flex flex-col items-center gap-3">
-      <div className="w-10 h-10 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
+      <div className="w-10 h-10 border-2 border-[#D2701A]/30 border-t-[#D2701A] rounded-full animate-spin" />
       <p className="text-slate-500 text-sm">Loading…</p>
     </div>
   </div>
@@ -46,6 +47,12 @@ const PageLoader = () => (
 
 /* ── Router definition ──────────────────────────────────────────── */
 const router = createBrowserRouter([
+  /* ── Public landing page ──────────────────────────────────────── */
+  {
+    path: '/',
+    element: <Suspense fallback={<PageLoader />}><PublicLandingPage /></Suspense>,
+  },
+
   /* ── Public routes ───────────────────────────────────────────── */
   {
     path: '/login',
@@ -60,6 +67,7 @@ const router = createBrowserRouter([
     element: <Suspense fallback={<PageLoader />}><OfficerRegister /></Suspense>,
   },
 
+  /* ── Victim portal — role-gated ──────────────────────────────── */
   {
     element: <PrivateRoute allowedRoles={['victim']} />,
     children: [
@@ -73,7 +81,7 @@ const router = createBrowserRouter([
     ],
   },
 
-  /* ── Officer portal — NyayaSetu officer dashboard (role-gated) ─ */
+  /* ── Officer portal — role-gated ────────────────────────────── */
   {
     element: <PrivateRoute allowedRoles={['officer']} />,
     children: [
@@ -85,19 +93,19 @@ const router = createBrowserRouter([
           </Suspense>
         ),
         children: [
-          { index: true, element: <Suspense fallback={<PageLoader />}><OfficerDashboard /></Suspense> },
-          { path: 'fir', element: <Suspense fallback={<PageLoader />}><FIRInbox /></Suspense> },
-          { path: 'fir/new', element: <Suspense fallback={<PageLoader />}><OfficerFIRNewPage /></Suspense> },
-          { path: 'fir/:firId', element: <Suspense fallback={<PageLoader />}><FIRDetail /></Suspense> },
-          { path: 'bns', element: <Suspense fallback={<PageLoader />}><BNSTranslator /></Suspense> },
-          { path: 'voice', element: <Suspense fallback={<PageLoader />}><VoiceStatements /></Suspense> },
-          { path: 'profile', element: <Suspense fallback={<PageLoader />}><OfficerProfile /></Suspense> },
+          { index: true,           element: <Suspense fallback={<PageLoader />}><OfficerDashboard /></Suspense> },
+          { path: 'fir',           element: <Suspense fallback={<PageLoader />}><FIRInbox /></Suspense> },
+          { path: 'fir/new',       element: <Suspense fallback={<PageLoader />}><OfficerFIRNewPage /></Suspense> },
+          { path: 'fir/:firId',    element: <Suspense fallback={<PageLoader />}><FIRDetail /></Suspense> },
+          { path: 'bns',           element: <Suspense fallback={<PageLoader />}><BNSTranslator /></Suspense> },
+          { path: 'voice',         element: <Suspense fallback={<PageLoader />}><VoiceStatements /></Suspense> },
+          { path: 'profile',       element: <Suspense fallback={<PageLoader />}><OfficerProfile /></Suspense> },
         ],
       },
     ],
   },
 
-  /* ── Admin portal — layout + nested routes (public for UI work; restore PrivateRoute before prod.) ─ */
+  /* ── Admin portal — layout + nested routes ───────────────────── */
   {
     path: '/admin',
     element: (
@@ -106,10 +114,10 @@ const router = createBrowserRouter([
       </Suspense>
     ),
     children: [
-      { index: true, element: <Suspense fallback={<PageLoader />}><AdminHome /></Suspense> },
-      { path: 'officers', element: <Suspense fallback={<PageLoader />}><AdminOfficerPage /></Suspense> },
-      { path: 'stations', element: <Suspense fallback={<PageLoader />}><AdminStationPage /></Suspense> },
-      { path: 'bns', element: <Suspense fallback={<PageLoader />}><AdminBNSPage /></Suspense> },
+      { index: true,         element: <Suspense fallback={<PageLoader />}><AdminHome /></Suspense> },
+      { path: 'officers',    element: <Suspense fallback={<PageLoader />}><AdminOfficerPage /></Suspense> },
+      { path: 'stations',    element: <Suspense fallback={<PageLoader />}><AdminStationPage /></Suspense> },
+      { path: 'bns',         element: <Suspense fallback={<PageLoader />}><AdminBNSPage /></Suspense> },
     ],
   },
 
@@ -117,10 +125,6 @@ const router = createBrowserRouter([
   {
     path: '/unauthorized',
     element: <Suspense fallback={<PageLoader />}><Unauthorized /></Suspense>,
-  },
-  {
-    path: '/',
-    element: <Navigate to="/login" replace />,
   },
   {
     path: '*',

@@ -1,6 +1,12 @@
-﻿import { useState, useEffect } from 'react';
-import { ChevronRight, AlertCircle, CheckCircle2, Loader2, Info } from 'lucide-react';
-import { officerService } from '../../../services/officerService';
+﻿import { useState, useEffect } from "react";
+import {
+  ChevronRight,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  Info,
+} from "lucide-react";
+import { officerService } from "../../../services/officerService";
 
 type FIRFormData = {
   incidentDate: string;
@@ -14,7 +20,7 @@ type FIRFormData = {
   victimEmail?: string;
   weaponUsed?: string;
   eyewitnesses?: string;
-  urgencyLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  urgencyLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 };
 
 type BNSSectionDetail = {
@@ -29,21 +35,21 @@ type BNSSectionDetail = {
 type Step = 1 | 2 | 3 | 4 | 5;
 
 const STEPS = [
-  { id: 1, label: 'Incident Details', icon: '📍' },
-  { id: 2, label: 'Victim Information', icon: '👤' },
-  { id: 3, label: 'Crime Classification', icon: '🏛️' },
-  { id: 4, label: 'Evidence & Witness', icon: '🔍' },
-  { id: 5, label: 'Review & Submit', icon: '✓' },
+  { id: 1, label: "Incident Details", icon: "📍" },
+  { id: 2, label: "Victim Information", icon: "👤" },
+  { id: 3, label: "Crime Classification", icon: "🏛️" },
+  { id: 4, label: "Evidence & Witness", icon: "🔍" },
+  { id: 5, label: "Review & Submit", icon: "✓" },
 ];
 
 const BNS_SECTIONS = [
-  { value: '103', label: '103 - Murder' },
-  { value: '104', label: '104 - Culpable Homicide' },
-  { value: '115', label: '115 - Voluntarily Causing Hurt' },
-  { value: '121', label: '121 - Causing Grievous Hurt' },
-  { value: '303', label: '303 - Theft' },
-  { value: '316', label: '316 - Cheating' },
-  { value: '351', label: '351 - Criminal Intimidation' },
+  { value: "103", label: "103 - Murder" },
+  { value: "104", label: "104 - Culpable Homicide" },
+  { value: "115", label: "115 - Voluntarily Causing Hurt" },
+  { value: "121", label: "121 - Causing Grievous Hurt" },
+  { value: "303", label: "303 - Theft" },
+  { value: "316", label: "316 - Cheating" },
+  { value: "351", label: "351 - Criminal Intimidation" },
 ];
 
 export const FIRCreateWizard = () => {
@@ -51,22 +57,23 @@ export const FIRCreateWizard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [selectedBnsDetail, setSelectedBnsDetail] = useState<BNSSectionDetail | null>(null);
+  const [selectedBnsDetail, setSelectedBnsDetail] =
+    useState<BNSSectionDetail | null>(null);
   const [loadingBnsDetail, setLoadingBnsDetail] = useState(false);
 
   const [formData, setFormData] = useState<FIRFormData>({
-    incidentDate: new Date().toISOString().split('T')[0],
-    incidentTime: '12:00',
-    incidentLocation: '',
-    incidentDescription: '',
-    bnsSection: '351',
-    victimName: '',
-    victimPhone: '',
-    victimAddress: '',
-    victimEmail: '',
-    weaponUsed: '',
-    eyewitnesses: '',
-    urgencyLevel: 'MEDIUM',
+    incidentDate: new Date().toISOString().split("T")[0],
+    incidentTime: "12:00",
+    incidentLocation: "",
+    incidentDescription: "",
+    bnsSection: "351",
+    victimName: "",
+    victimPhone: "",
+    victimAddress: "",
+    victimEmail: "",
+    weaponUsed: "",
+    eyewitnesses: "",
+    urgencyLevel: "MEDIUM",
   });
 
   // Fetch BNS section details when selection changes
@@ -79,7 +86,9 @@ export const FIRCreateWizard = () => {
     const fetchBnsDetail = async () => {
       setLoadingBnsDetail(true);
       try {
-        const response = await officerService.getBnsBySectionNumber(formData.bnsSection);
+        const response = await officerService.getBnsBySectionNumber(
+          formData.bnsSection,
+        );
         if (response?.bnsSection) {
           setSelectedBnsDetail({
             sectionNumber: response.bnsSection.sectionNumber,
@@ -91,13 +100,15 @@ export const FIRCreateWizard = () => {
           });
         }
       } catch (err) {
-        console.error('Failed to fetch BNS details:', err);
+        console.error("Failed to fetch BNS details:", err);
         // Set minimal details if API fails
-        const section = BNS_SECTIONS.find(s => s.value === formData.bnsSection);
+        const section = BNS_SECTIONS.find(
+          (s) => s.value === formData.bnsSection,
+        );
         if (section) {
           setSelectedBnsDetail({
             sectionNumber: formData.bnsSection,
-            sectionTitle: section.label.split(' - ')[1],
+            sectionTitle: section.label.split(" - ")[1],
           });
         }
       } finally {
@@ -108,7 +119,11 @@ export const FIRCreateWizard = () => {
     fetchBnsDetail();
   }, [formData.bnsSection]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setError(null);
@@ -117,20 +132,28 @@ export const FIRCreateWizard = () => {
   const validateStep = (step: Step): boolean => {
     switch (step) {
       case 1:
-        if (!formData.incidentDate || !formData.incidentLocation || !formData.incidentDescription) {
-          setError('Please fill in all incident details');
+        if (
+          !formData.incidentDate ||
+          !formData.incidentLocation ||
+          !formData.incidentDescription
+        ) {
+          setError("Please fill in all incident details");
           return false;
         }
         return true;
       case 2:
-        if (!formData.victimName || !formData.victimPhone || !formData.victimAddress) {
-          setError('Please fill in all victim information');
+        if (
+          !formData.victimName ||
+          !formData.victimPhone ||
+          !formData.victimAddress
+        ) {
+          setError("Please fill in all victim information");
           return false;
         }
         return true;
       case 3:
         if (!formData.bnsSection) {
-          setError('Please select a crime classification');
+          setError("Please select a crime classification");
           return false;
         }
         return true;
@@ -173,7 +196,9 @@ export const FIRCreateWizard = () => {
       }
 
       // Combine date and time
-      const incidentDateTime = new Date(`${formData.incidentDate}T${formData.incidentTime}`);
+      const incidentDateTime = new Date(
+        `${formData.incidentDate}T${formData.incidentTime}`,
+      );
 
       // Create FIR payload
       const firPayload = {
@@ -194,28 +219,30 @@ export const FIRCreateWizard = () => {
       // Call API to create FIR
       const result = await officerService.createFIR(firPayload);
 
-      setSuccess(`FIR ${result.firNumber} has been successfully created and registered.`);
+      setSuccess(
+        `FIR ${result.firNumber} has been successfully created and registered.`,
+      );
 
       // Reset form after successful submission
       setTimeout(() => {
         setCurrentStep(1);
         setFormData({
-          incidentDate: new Date().toISOString().split('T')[0],
-          incidentTime: '12:00',
-          incidentLocation: '',
-          incidentDescription: '',
-          bnsSection: '351',
-          victimName: '',
-          victimPhone: '',
-          victimAddress: '',
-          victimEmail: '',
-          weaponUsed: '',
-          eyewitnesses: '',
-          urgencyLevel: 'MEDIUM',
+          incidentDate: new Date().toISOString().split("T")[0],
+          incidentTime: "12:00",
+          incidentLocation: "",
+          incidentDescription: "",
+          bnsSection: "351",
+          victimName: "",
+          victimPhone: "",
+          victimAddress: "",
+          victimEmail: "",
+          weaponUsed: "",
+          eyewitnesses: "",
+          urgencyLevel: "MEDIUM",
         });
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create FIR');
+      setError(err instanceof Error ? err.message : "Failed to create FIR");
     } finally {
       setLoading(false);
     }
@@ -236,19 +263,23 @@ export const FIRCreateWizard = () => {
                 }}
                 className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm transition-colors ${
                   step.id === currentStep
-                    ? 'bg-[#F97316] text-white'
+                    ? "bg-[#F97316] text-white"
                     : step.id < currentStep
-                      ? 'bg-[#10b981] text-white'
-                      : 'bg-gray-700 text-gray-300'
+                      ? "bg-[#10b981] text-white"
+                      : "bg-gray-700 text-gray-300"
                 }`}
               >
-                {step.id < currentStep ? '✓' : step.id}
+                {step.id < currentStep ? "✓" : step.id}
               </button>
               <div className="ml-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{step.label}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  {step.label}
+                </p>
               </div>
               {index < STEPS.length - 1 && (
-                <div className={`flex-1 h-1 mx-4 mt-1 ${step.id < currentStep ? 'bg-[#10b981]' : 'bg-gray-700'}`} />
+                <div
+                  className={`flex-1 h-1 mx-4 mt-1 ${step.id < currentStep ? "bg-[#10b981]" : "bg-gray-700"}`}
+                />
               )}
             </div>
           ))}
@@ -274,11 +305,15 @@ export const FIRCreateWizard = () => {
         {/* Step 1: Incident Details */}
         {currentStep === 1 && (
           <div className="space-y-5">
-            <h2 className="text-xl font-bold text-white mb-6">Incident Details</h2>
+            <h2 className="text-xl font-bold text-white mb-6">
+              Incident Details
+            </h2>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Date of Incident</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Date of Incident
+                </label>
                 <input
                   type="date"
                   name="incidentDate"
@@ -288,7 +323,9 @@ export const FIRCreateWizard = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Time of Incident</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Time of Incident
+                </label>
                 <input
                   type="time"
                   name="incidentTime"
@@ -300,7 +337,9 @@ export const FIRCreateWizard = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Location of Incident</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Location of Incident
+              </label>
               <input
                 type="text"
                 name="incidentLocation"
@@ -312,7 +351,9 @@ export const FIRCreateWizard = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Description of Incident</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Description of Incident
+              </label>
               <textarea
                 name="incidentDescription"
                 placeholder="Provide a detailed description of what happened..."
@@ -324,7 +365,9 @@ export const FIRCreateWizard = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Urgency Level</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Urgency Level
+              </label>
               <select
                 name="urgencyLevel"
                 value={formData.urgencyLevel}
@@ -343,10 +386,14 @@ export const FIRCreateWizard = () => {
         {/* Step 2: Victim Information */}
         {currentStep === 2 && (
           <div className="space-y-5">
-            <h2 className="text-xl font-bold text-white mb-6">Victim Information</h2>
+            <h2 className="text-xl font-bold text-white mb-6">
+              Victim Information
+            </h2>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Victim Name</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Victim Name
+              </label>
               <input
                 type="text"
                 name="victimName"
@@ -359,7 +406,9 @@ export const FIRCreateWizard = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Phone Number</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Phone Number
+                </label>
                 <input
                   type="tel"
                   name="victimPhone"
@@ -370,7 +419,9 @@ export const FIRCreateWizard = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Email (Optional)</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Email (Optional)
+                </label>
                 <input
                   type="email"
                   name="victimEmail"
@@ -383,7 +434,9 @@ export const FIRCreateWizard = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Address</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Address
+              </label>
               <textarea
                 name="victimAddress"
                 placeholder="Enter victim's address..."
@@ -399,10 +452,14 @@ export const FIRCreateWizard = () => {
         {/* Step 3: Crime Classification */}
         {currentStep === 3 && (
           <div className="space-y-5">
-            <h2 className="text-xl font-bold text-white mb-6">Crime Classification (BNS Section)</h2>
+            <h2 className="text-xl font-bold text-white mb-6">
+              Crime Classification (BNS Section)
+            </h2>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Select Applicable BNS Section</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Select Applicable BNS Section
+              </label>
               <select
                 name="bnsSection"
                 value={formData.bnsSection}
@@ -420,18 +477,26 @@ export const FIRCreateWizard = () => {
             {loadingBnsDetail ? (
               <div className="bg-[#2a2a2a] rounded-lg p-6 border border-white/10 flex items-center justify-center gap-2">
                 <Loader2 className="w-5 h-5 animate-spin text-[#F97316]" />
-                <p className="text-sm text-gray-400">Loading section details...</p>
+                <p className="text-sm text-gray-400">
+                  Loading section details...
+                </p>
               </div>
             ) : selectedBnsDetail ? (
               <>
                 {/* BNS Section Details Card */}
                 <div className="bg-[#2a2a2a] rounded-lg p-4 border border-white/10">
                   <p className="text-sm text-gray-300 mb-2">
-                    <strong>BNS Section {selectedBnsDetail.sectionNumber}:</strong> {selectedBnsDetail.sectionTitle}
+                    <strong>
+                      BNS Section {selectedBnsDetail.sectionNumber}:
+                    </strong>{" "}
+                    {selectedBnsDetail.sectionTitle}
                   </p>
                   {selectedBnsDetail.ipcEquivalent && (
                     <p className="text-sm text-gray-400">
-                      <strong>IPC Equivalent:</strong> Section {selectedBnsDetail.ipcEquivalent} {selectedBnsDetail.ipcTitle && `- ${selectedBnsDetail.ipcTitle}`}
+                      <strong>IPC Equivalent:</strong> Section{" "}
+                      {selectedBnsDetail.ipcEquivalent}{" "}
+                      {selectedBnsDetail.ipcTitle &&
+                        `- ${selectedBnsDetail.ipcTitle}`}
                     </p>
                   )}
                 </div>
@@ -442,8 +507,12 @@ export const FIRCreateWizard = () => {
                     <div className="flex gap-3">
                       <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-blue-300 mb-2">Mapping Reasoning</p>
-                        <p className="text-sm text-blue-200">{selectedBnsDetail.mappingReasoning}</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-blue-300 mb-2">
+                          Mapping Reasoning
+                        </p>
+                        <p className="text-sm text-blue-200">
+                          {selectedBnsDetail.mappingReasoning}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -452,14 +521,21 @@ export const FIRCreateWizard = () => {
                 {/* IPC Description */}
                 {selectedBnsDetail.ipcDescription && (
                   <div className="bg-[#2a2a2a] rounded-lg p-4 border border-white/10">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">IPC Section Description</p>
-                    <p className="text-sm text-gray-300">{selectedBnsDetail.ipcDescription}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                      IPC Section Description
+                    </p>
+                    <p className="text-sm text-gray-300">
+                      {selectedBnsDetail.ipcDescription}
+                    </p>
                   </div>
                 )}
               </>
             ) : (
               <div className="bg-[#2a2a2a] rounded-lg p-4 border border-white/10">
-                <p className="text-sm text-gray-400">Select a BNS section to view detailed information and mapping reasoning.</p>
+                <p className="text-sm text-gray-400">
+                  Select a BNS section to view detailed information and mapping
+                  reasoning.
+                </p>
               </div>
             )}
           </div>
@@ -468,10 +544,14 @@ export const FIRCreateWizard = () => {
         {/* Step 4: Evidence & Witnesses */}
         {currentStep === 4 && (
           <div className="space-y-5">
-            <h2 className="text-xl font-bold text-white mb-6">Evidence & Witnesses</h2>
+            <h2 className="text-xl font-bold text-white mb-6">
+              Evidence & Witnesses
+            </h2>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Weapon Used (if any)</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Weapon Used (if any)
+              </label>
               <input
                 type="text"
                 name="weaponUsed"
@@ -483,7 +563,9 @@ export const FIRCreateWizard = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Eyewitnesses</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Eyewitnesses
+              </label>
               <textarea
                 name="eyewitnesses"
                 placeholder="Names and contact details of eyewitnesses..."
@@ -495,7 +577,9 @@ export const FIRCreateWizard = () => {
             </div>
 
             <div className="bg-[#2a2a2a] rounded-lg p-4 border border-white/10">
-              <p className="text-sm text-gray-400">Evidence and witnesses can be updated after FIR creation.</p>
+              <p className="text-sm text-gray-400">
+                Evidence and witnesses can be updated after FIR creation.
+              </p>
             </div>
           </div>
         )}
@@ -503,33 +587,64 @@ export const FIRCreateWizard = () => {
         {/* Step 5: Review & Submit */}
         {currentStep === 5 && (
           <div className="space-y-5">
-            <h2 className="text-xl font-bold text-white mb-6">Review & Submit FIR</h2>
+            <h2 className="text-xl font-bold text-white mb-6">
+              Review & Submit FIR
+            </h2>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-[#2a2a2a] rounded-lg p-4">
-                <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Incident Details</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">
+                  Incident Details
+                </p>
                 <div className="space-y-1 text-sm text-gray-300">
-                  <p><strong>Date:</strong> {formData.incidentDate} {formData.incidentTime}</p>
-                  <p><strong>Location:</strong> {formData.incidentLocation}</p>
-                  <p><strong>Urgency:</strong> {formData.urgencyLevel}</p>
+                  <p>
+                    <strong>Date:</strong> {formData.incidentDate}{" "}
+                    {formData.incidentTime}
+                  </p>
+                  <p>
+                    <strong>Location:</strong> {formData.incidentLocation}
+                  </p>
+                  <p>
+                    <strong>Urgency:</strong> {formData.urgencyLevel}
+                  </p>
                 </div>
               </div>
 
               <div className="bg-[#2a2a2a] rounded-lg p-4">
-                <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Victim Information</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">
+                  Victim Information
+                </p>
                 <div className="space-y-1 text-sm text-gray-300">
-                  <p><strong>Name:</strong> {formData.victimName}</p>
-                  <p><strong>Phone:</strong> {formData.victimPhone}</p>
-                  <p><strong>Address:</strong> {formData.victimAddress.substring(0, 30)}...</p>
+                  <p>
+                    <strong>Name:</strong> {formData.victimName}
+                  </p>
+                  <p>
+                    <strong>Phone:</strong> {formData.victimPhone}
+                  </p>
+                  <p>
+                    <strong>Address:</strong>{" "}
+                    {formData.victimAddress.substring(0, 30)}...
+                  </p>
                 </div>
               </div>
 
               <div className="bg-[#2a2a2a] rounded-lg p-4 col-span-2">
-                <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Crime Classification</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">
+                  Crime Classification
+                </p>
                 <div className="space-y-2 text-sm text-gray-300">
-                  <p><strong>BNS Section:</strong> {BNS_SECTIONS.find((s) => s.value === formData.bnsSection)?.label}</p>
+                  <p>
+                    <strong>BNS Section:</strong>{" "}
+                    {
+                      BNS_SECTIONS.find((s) => s.value === formData.bnsSection)
+                        ?.label
+                    }
+                  </p>
                   {selectedBnsDetail?.ipcEquivalent && (
-                    <p><strong>IPC Equivalent:</strong> Section {selectedBnsDetail.ipcEquivalent}</p>
+                    <p>
+                      <strong>IPC Equivalent:</strong> Section{" "}
+                      {selectedBnsDetail.ipcEquivalent}
+                    </p>
                   )}
                   {selectedBnsDetail?.mappingReasoning && (
                     <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-blue-200">
@@ -543,8 +658,8 @@ export const FIRCreateWizard = () => {
 
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
               <p className="text-sm text-blue-300">
-                By submitting this FIR, you confirm that all the information provided is accurate and true to the best
-                of your knowledge.
+                By submitting this FIR, you confirm that all the information
+                provided is accurate and true to the best of your knowledge.
               </p>
             </div>
           </div>
@@ -576,8 +691,12 @@ export const FIRCreateWizard = () => {
               disabled={loading}
               className="px-8 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              {loading ? 'Creating FIR...' : 'Create FIR'}
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4" />
+              )}
+              {loading ? "Creating FIR..." : "Create FIR"}
             </button>
           )}
         </div>

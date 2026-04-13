@@ -152,6 +152,22 @@ export class VoiceRecordingService {
     });
   }
 
+  /** Deep-loads a recording including the VictimStatement's CrimeClassification for BNS section resolution. */
+  static async getVoiceRecordingWithClassification(recordingId: string) {
+    return prisma.voiceRecording.findUnique({
+      where: { id: recordingId },
+      include: {
+        user: true,
+        fir: true,
+        victimStatement: {
+          include: {
+            classification: true,
+          },
+        },
+      },
+    });
+  }
+
   static async getVoiceRecordingsByUser(userId: string) {
     return prisma.voiceRecording.findMany({
       where: { userId },

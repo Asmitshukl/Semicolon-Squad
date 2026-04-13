@@ -301,14 +301,11 @@ export const officerService = {
   },
 
   async generateFIRFromRecording(recordingId: string) {
-    // Create a draft FIR linked to the recording
-    const recording = await this.getVoiceRecording(recordingId);
-    const fir = await this.createFIR({
-      incidentDescription: recording.transcript || 'From voice recording',
-      incidentLocation: 'Unknown',
-      incidentDate: new Date().toISOString(),
-      voiceRecordingIds: [recordingId],
-    });
-    return fir;
+    // Call the dedicated officer endpoint — avoids the 403 from victim-only /fir/create
+    const { data } = await api.post<{ success: true; data: BackendFIR }>(
+      '/officer/fir/generate-from-recording',
+      { recordingId },
+    );
+    return mapFir(data.data);
   },
 };

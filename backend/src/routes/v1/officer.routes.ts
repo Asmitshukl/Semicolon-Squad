@@ -10,6 +10,7 @@ export const officerRoutes: RouteDefinition[] = [
   { method: 'GET', path: '/api/officer/profile', handler: asyncHandler(OfficerDashboardController.getProfile) },
 
   // FIR Management
+  { method: 'POST', path: '/api/officer/fir/generate-from-recording', handler: asyncHandler(FIRController.generateFIRFromRecording) },
   { method: 'POST', path: '/api/officer/fir/create', handler: asyncHandler(FIRController.createFIR) },
   { method: 'PUT', path: '/api/officer/fir/update', handler: asyncHandler(FIRController.updateFIR) },
   { method: 'POST', path: '/api/officer/fir/submit', handler: asyncHandler(FIRController.submitFIR) },

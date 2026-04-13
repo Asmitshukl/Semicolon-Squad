@@ -33,6 +33,68 @@ export class FIRController {
     });
   }
 
+  /**
+   * Officer-initiated: generate a draft FIR from an uploaded voice recording.
+   * Fetches the recording transcript + BNS section (via CrimeClassification),
+   * creates a DRAFT FIR linked to the officer's station.
+   * Route: POST /api/officer/fir/generate-from-recording
+   */
+  static async generateFIRFromRecording(req: IncomingMessage, res: ServerResponse, body: any) {
+    const user = await getAuthenticatedUser(req, [Role.OFFICER]);
+
+    if (!user.officer) {
+      throw new ApiError(403, 'User does not have an officer profile.');
+    }
+
+    const recordingId = String(body.recordingId ?? '');
+    if (!recordingId) {
+      throw new ApiError(400, 'recordingId is required.');
+    }
+
+    // Load recording with victimStatement → classification → bnsSection
+    const recording = await VoiceRecordingService.getVoiceRecordingWithClassification(recordingId);
+    if (!recording) {
+      throw new ApiError(404, 'Voice recording not found.');
+    }
+
+    // Extract BNS section IDs from classification (schema: VictimStatement → CrimeClassification → BNSSection)
+    const statement = (recording as any).victimStatement as {
+      id: string;
+      rawText?: string | null;
+      classification?: { bnsSectionId: string } | null;
+    } | null;
+
+    const bnsSectionIds: string[] = statement?.classification?.bnsSectionId
+      ? [statement.classification.bnsSectionId]
+      : [];
+
+    const transcript =
+      recording.transcript ||
+      statement?.rawText ||
+      'Voice statement recorded by officer — transcript pending.';
+
+    const fir = await FIRService.createOfficerDraftFIR({
+      officerUserId: user.id,
+      stationId: user.officer.stationId,
+      incidentDate: recording.recordedAt ?? new Date(),
+      incidentLocation: 'As reported — location to be confirmed',
+      incidentDescription: transcript,
+      bnsSectionIds,
+      voiceRecordingId: recordingId,
+    });
+
+    // Trigger AI summary asynchronously (non-blocking)
+    FIRSummaryService.generateSummary(fir.id).catch((err) =>
+      console.warn('[generateFIRFromRecording] Summary generation failed:', err),
+    );
+
+    sendJson(res, 201, {
+      success: true,
+      data: fir,
+      message: 'Draft FIR generated from voice recording.',
+    });
+  }
+
   static async updateFIR(req: IncomingMessage, res: ServerResponse, body: any) {
     const user = await getAuthenticatedUser(req, [Role.VICTIM, Role.OFFICER]);
 

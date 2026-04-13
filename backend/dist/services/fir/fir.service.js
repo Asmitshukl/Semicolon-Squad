@@ -49,6 +49,65 @@ class FIRService {
         });
         return fir;
     }
+    /**
+     * Officer-generated draft FIR from a voice recording.
+     * Uses the officer's own user record as the FIR owner (victim field)
+     * since this is an officer-initiated draft directly from a voice statement.
+     */
+    static async createOfficerDraftFIR(input) {
+        const officer = await database_1.prisma.user.findUnique({
+            where: { id: input.officerUserId },
+            include: { officer: { include: { station: true } } },
+        });
+        if (!officer) {
+            throw new ApiError_1.ApiError(404, 'Officer user not found');
+        }
+        if (!officer.officer) {
+            throw new ApiError_1.ApiError(403, 'User does not have an officer profile');
+        }
+        const stationId = input.stationId || officer.officer.stationId;
+        const station = await database_1.prisma.policeStation.findUnique({
+            where: { id: stationId },
+        });
+        if (!station) {
+            throw new ApiError_1.ApiError(404, 'Police station not found');
+        }
+        const fir = await database_1.prisma.fIR.create({
+            data: {
+                // Link the FIR's victim to the officer's own user — acts as a placeholder for officer-generated drafts
+                victimId: input.officerUserId,
+                stationId,
+                officerId: officer.officer.id,
+                incidentDate: input.incidentDate,
+                incidentLocation: input.incidentLocation,
+                incidentDescription: input.incidentDescription,
+                urgencyLevel: input.urgencyLevel || enums_1.UrgencyLevel.MEDIUM,
+                status: enums_1.FIRStatus.DRAFT,
+                isOnlineFIR: false,
+                bnsSections: input.bnsSectionIds?.length
+                    ? { connect: input.bnsSectionIds.map((id) => ({ id })) }
+                    : undefined,
+                // Link voice recording if provided
+                voiceRecordings: input.voiceRecordingId
+                    ? { connect: { id: input.voiceRecordingId } }
+                    : undefined,
+            },
+            include: {
+                victim: { select: { id: true, name: true, phone: true } },
+                officer: {
+                    include: { user: { select: { name: true } }, station: true },
+                },
+                station: true,
+                bnsSections: true,
+                voiceRecordings: {
+                    include: { victimStatement: true },
+                },
+                caseUpdates: true,
+                victimStatements: true,
+            },
+        });
+        return fir;
+    }
     static async updateFIR(firId, input) {
         const fir = await database_1.prisma.fIR.findUnique({ where: { id: firId } });
         if (!fir) {

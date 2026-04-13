@@ -26,7 +26,6 @@ npm run prisma:push
 echo ""
 echo "Creating default admin user..."
 npm run create:admin
-echo "Default admin login: admin@example.com / StrongPass123"
 
 # Start the backend service
 echo ""

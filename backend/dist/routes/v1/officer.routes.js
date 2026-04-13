@@ -10,6 +10,7 @@ exports.officerRoutes = [
     { method: 'GET', path: '/api/officer/dashboard', handler: (0, asyncHandler_1.asyncHandler)(dashboard_controller_1.OfficerDashboardController.getDashboard) },
     { method: 'GET', path: '/api/officer/profile', handler: (0, asyncHandler_1.asyncHandler)(dashboard_controller_1.OfficerDashboardController.getProfile) },
     // FIR Management
+    { method: 'POST', path: '/api/officer/fir/generate-from-recording', handler: (0, asyncHandler_1.asyncHandler)(fir_controller_1.FIRController.generateFIRFromRecording) },
     { method: 'POST', path: '/api/officer/fir/create', handler: (0, asyncHandler_1.asyncHandler)(fir_controller_1.FIRController.createFIR) },
     { method: 'PUT', path: '/api/officer/fir/update', handler: (0, asyncHandler_1.asyncHandler)(fir_controller_1.FIRController.updateFIR) },
     { method: 'POST', path: '/api/officer/fir/submit', handler: (0, asyncHandler_1.asyncHandler)(fir_controller_1.FIRController.submitFIR) },
